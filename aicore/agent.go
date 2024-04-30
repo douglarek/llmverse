@@ -51,6 +51,11 @@ func (a *LLMAgent) loadHistory(_ context.Context, user string) *memory.Conversat
 	return v.(*memory.ConversationTokenBuffer)
 }
 
+func (a *LLMAgent) ClearHistory(_ context.Context, user string) {
+	a.history.Delete(user)
+	slog.Debug("history cleared", "user", user)
+}
+
 func (a *LLMAgent) Query(ctx context.Context, user string, input string) (string, error) {
 	slog.Info("query", "user", user, "input", input)
 

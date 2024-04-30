@@ -54,30 +54,52 @@ func main() {
 
 func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 	return func(e *gateway.MessageCreateEvent) {
-		if !e.Author.Bot {
-			s.React(e.ChannelID, e.ID, "💬")
-			s.Typing(e.ChannelID)
-			slog.Debug("received message", "content", e.Content, "author", e.Author.Username, "channel", e.ChannelID, "guild", e.GuildID)
-			rawConent := strings.TrimLeftFunc(regexp.MustCompile("<[^>]+>").ReplaceAllString(e.Content, ""), unicode.IsSpace)
-			resp, err := m.Query(context.Background(), e.Author.Username, rawConent)
-			if err != nil {
-				if _, err := s.SendMessageReply(e.ChannelID, fmt.Sprintf("An error occurred: %v", err), e.ID); err != nil {
+		if e.Author.Bot || e.MentionEveryone { // ignore this bot and disable @everyone
+			return
+		}
+
+		var shouldReply bool
+		for _, mention := range e.Mentions {
+			if mention.ID == s.Ready().User.ID {
+				shouldReply = true
+				break
+			}
+		}
+
+		shouldReply = shouldReply || !e.GuildID.IsValid() // direct message
+		if !shouldReply {
+			return
+		}
+
+		s.React(e.ChannelID, e.ID, "💬")
+		s.Typing(e.ChannelID)
+		slog.Debug("received message", "content", e.Content, "author", e.Author.Username, "channel", e.ChannelID, "guild", e.GuildID)
+		rawConent := strings.TrimLeftFunc(regexp.MustCompile("<[^>]+>").ReplaceAllString(e.Content, ""), unicode.IsSpace)
+
+		if rawConent == "$clear" {
+			m.ClearHistory(s.Context(), e.Author.Username)
+			s.SendMessageReply(e.ChannelID, "🤖 history cleared.", e.ID)
+			return
+		}
+
+		resp, err := m.Query(context.Background(), e.Author.Username, rawConent)
+		if err != nil {
+			if _, err := s.SendMessageReply(e.ChannelID, fmt.Sprintf("An error occurred: %v", err), e.ID); err != nil {
+				slog.Error("cannot send message", "error", err)
+			}
+		} else {
+			if len(resp) > 2000 {
+				if _, err := s.SendMessageComplex(e.ChannelID, api.SendMessageData{
+					Content:   resp[:2000],
+					Reference: &discord.MessageReference{MessageID: e.ID},
+					Files:     []sendpart.File{{Name: "message.md", Reader: strings.NewReader(resp)}},
+				}); err != nil {
 					slog.Error("cannot send message", "error", err)
 				}
-			} else {
-				if len(resp) > 2000 {
-					if _, err := s.SendMessageComplex(e.ChannelID, api.SendMessageData{
-						Content:   resp[:2000],
-						Reference: &discord.MessageReference{MessageID: e.ID},
-						Files:     []sendpart.File{{Name: "message.md", Reader: strings.NewReader(resp)}},
-					}); err != nil {
-						slog.Error("cannot send message", "error", err)
-					}
-					return
-				}
-				if _, err := s.SendMessageReply(e.ChannelID, resp, e.ID); err != nil {
-					slog.Error("cannot send message", "error", err)
-				}
+				return
+			}
+			if _, err := s.SendMessageReply(e.ChannelID, resp, e.ID); err != nil {
+				slog.Error("cannot send message", "error", err)
 			}
 		}
 	}
