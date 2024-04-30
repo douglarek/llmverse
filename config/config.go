@@ -30,6 +30,9 @@ func (s Settings) IsGroqEnabled() bool {
 	return s.GroqAPIKey != ""
 }
 
+func (s Settings) HasVision() bool {
+	return s.IsGoogleEnabled() // todo: others
+}
 func Load() Settings {
 	var settings Settings
 	if err := env.Parse(&settings); err != nil {

@@ -82,7 +82,24 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 			return
 		}
 
-		resp, err := m.Query(context.Background(), e.Author.Username, rawConent)
+		var imageURLs []string
+		var resp string
+		var err error
+		if len(e.Attachments) > 0 {
+			for _, a := range e.Attachments {
+				if strings.HasSuffix(a.Filename, ".png") || strings.HasSuffix(a.Filename, ".jpg") || strings.HasSuffix(a.Filename, ".jpeg") || strings.HasSuffix(a.Filename, ".gif") || strings.HasSuffix(a.Filename, ".webp") {
+					imageURLs = append(imageURLs, a.URL)
+				}
+			}
+			if len(imageURLs) == 0 {
+				resp = "🤖 no image found. only png, jpg, jpeg, gif or webp supported"
+			} else {
+				resp, err = m.QueryVision(context.Background(), e.Author.Username, rawConent, imageURLs)
+			}
+		} else {
+			resp, err = m.Query(context.Background(), e.Author.Username, rawConent)
+		}
+
 		if err != nil {
 			if _, err := s.SendMessageReply(e.ChannelID, fmt.Sprintf("An error occurred: %v", err), e.ID); err != nil {
 				slog.Error("cannot send message", "error", err)

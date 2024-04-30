@@ -2,7 +2,10 @@ package aicore
 
 import (
 	"context"
+	"errors"
+	"io"
 	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
@@ -43,11 +46,11 @@ type LLMAgent struct {
 	model          llms.Model
 	history        sync.Map
 	promptTemplate prompts.ChatPromptTemplate
-	settins        config.Settings
+	settings       config.Settings
 }
 
 func (a *LLMAgent) loadHistory(_ context.Context, user string) *memory.ConversationTokenBuffer {
-	v, _ := a.history.LoadOrStore(user, memory.NewConversationTokenBuffer(a.model, a.settins.HistoryMaxSize))
+	v, _ := a.history.LoadOrStore(user, memory.NewConversationTokenBuffer(a.model, a.settings.HistoryMaxSize))
 	return v.(*memory.ConversationTokenBuffer)
 }
 
@@ -66,7 +69,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string) (string
 	})
 	slog.Debug("prompt", "user", user, "prompt", prompt)
 
-	resp, err := llms.GenerateFromSinglePrompt(ctx, a.model, prompt, llms.WithTemperature(a.settins.Temperature))
+	resp, err := llms.GenerateFromSinglePrompt(ctx, a.model, prompt, llms.WithTemperature(a.settings.Temperature))
 	if err == nil {
 		ctb := a.loadHistory(ctx, user)
 		if err := ctb.SaveContext(ctx, map[string]any{"input": input}, map[string]any{"output": resp}); err != nil {
@@ -75,6 +78,50 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string) (string
 		slog.Info("response", "user", "ai", "response", resp)
 	}
 	return resp, err
+}
+
+func downloadImage(_ context.Context, url string) ([]byte, error) {
+	c := &http.Client{Timeout: 30 * time.Second}
+	resp, err := c.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return io.ReadAll(resp.Body)
+}
+
+func (a *LLMAgent) QueryVision(ctx context.Context, user string, input string, imageURLs []string) (string, error) {
+	slog.Info("query", "user", user, "input", input, "imageURLs", imageURLs)
+	if !a.settings.HasVision() {
+		return "", errors.New("vision not enabled")
+	}
+
+	var parts []llms.ContentPart
+	for _, url := range imageURLs {
+		b, err := downloadImage(ctx, url)
+		if err != nil {
+			return "", err
+		}
+		parts = append(parts, llms.BinaryPart("image/png", b))
+	}
+	parts = append(parts, llms.TextPart(input))
+
+	content := []llms.MessageContent{
+		{
+			Role:  llms.ChatMessageTypeHuman,
+			Parts: parts,
+		},
+	}
+	resp, err := a.model.GenerateContent(ctx, content)
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", errors.New("no response")
+	}
+
+	return resp.Choices[0].Content, nil
 }
 
 func NewLLMAgent(settings config.Settings) *LLMAgent {
@@ -97,6 +144,6 @@ func NewLLMAgent(settings config.Settings) *LLMAgent {
 	return &LLMAgent{
 		model:          buildModelFromConfig(settings),
 		promptTemplate: pt,
-		settins:        settings,
+		settings:       settings,
 	}
 }
