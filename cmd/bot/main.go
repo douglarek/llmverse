@@ -47,6 +47,7 @@ func main() {
 	s.AddIntents(gateway.IntentGuildMessages)  // when @mentioned
 	s.AddHandler(messageHandler(s, aicore.NewLLMAgent(settings)))
 
+	slog.Info("starting bot")
 	if err := s.Connect(context.TODO()); err != nil {
 		slog.Error("cannot connect", "error", err)
 	}
@@ -94,10 +95,10 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 			if len(imageURLs) == 0 {
 				resp = "🤖 no image found. only png, jpg, jpeg, gif or webp supported"
 			} else {
-				resp, err = m.QueryVision(context.Background(), e.Author.Username, rawConent, imageURLs)
+				resp, err = m.Query(context.Background(), e.Author.Username, rawConent, imageURLs)
 			}
 		} else {
-			resp, err = m.Query(context.Background(), e.Author.Username, rawConent)
+			resp, err = m.Query(context.Background(), e.Author.Username, rawConent, nil)
 		}
 
 		if err != nil {
@@ -114,6 +115,9 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 					slog.Error("cannot send message", "error", err)
 				}
 				return
+			}
+			if len(resp) == 0 {
+				resp = "🤖 no response" // groq
 			}
 			if _, err := s.SendMessageReply(e.ChannelID, resp, e.ID); err != nil {
 				slog.Error("cannot send message", "error", err)

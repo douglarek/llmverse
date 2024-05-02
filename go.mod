@@ -71,3 +71,5 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/gage-technologies/mistral-go v1.0.0 => github.com/gdumoulin/mistral-go v1.0.1-0.20240418082154-90d44f7549a7

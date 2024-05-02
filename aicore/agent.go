@@ -15,7 +15,6 @@ import (
 	"github.com/tmc/langchaingo/llms/mistral"
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/tmc/langchaingo/memory"
-	"github.com/tmc/langchaingo/prompts"
 )
 
 func buildModelFromConfig(settings config.Settings) llms.Model {
@@ -43,10 +42,9 @@ func buildModelFromConfig(settings config.Settings) llms.Model {
 }
 
 type LLMAgent struct {
-	model          llms.Model
-	history        sync.Map
-	promptTemplate prompts.ChatPromptTemplate
-	settings       config.Settings
+	model    llms.Model
+	history  sync.Map
+	settings config.Settings
 }
 
 func (a *LLMAgent) loadHistory(_ context.Context, user string) *memory.ConversationTokenBuffer {
@@ -59,27 +57,6 @@ func (a *LLMAgent) ClearHistory(_ context.Context, user string) {
 	slog.Debug("history cleared", "user", user)
 }
 
-func (a *LLMAgent) Query(ctx context.Context, user string, input string) (string, error) {
-	slog.Info("query", "user", user, "input", input)
-
-	historyMessages, _ := a.loadHistory(ctx, user).LoadMemoryVariables(ctx, map[string]any{})
-	prompt, _ := a.promptTemplate.Format(map[string]any{
-		"historyMessages": historyMessages,
-		"question":        input,
-	})
-	slog.Debug("prompt", "user", user, "prompt", prompt)
-
-	resp, err := llms.GenerateFromSinglePrompt(ctx, a.model, prompt, llms.WithTemperature(a.settings.Temperature))
-	if err == nil {
-		ctb := a.loadHistory(ctx, user)
-		if err := ctb.SaveContext(ctx, map[string]any{"input": input}, map[string]any{"output": resp}); err != nil {
-			slog.Error("failed to save context", "error", err)
-		}
-		slog.Info("response", "user", "ai", "response", resp)
-	}
-	return resp, err
-}
-
 func downloadImage(_ context.Context, url string) ([]byte, error) {
 	c := &http.Client{Timeout: 30 * time.Second}
 	resp, err := c.Get(url)
@@ -90,28 +67,64 @@ func downloadImage(_ context.Context, url string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-func (a *LLMAgent) QueryVision(ctx context.Context, user string, input string, imageURLs []string) (string, error) {
+func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageURLs []string) (string, error) {
 	slog.Info("query", "user", user, "input", input, "imageURLs", imageURLs)
-	if !a.settings.HasVision() {
-		return "", errors.New("vision not enabled")
+	if len(imageURLs) > 0 && !a.settings.HasVision() {
+		return "", errors.New("vision of current model not enabled")
 	}
 
-	var parts []llms.ContentPart
-	for _, url := range imageURLs {
-		b, err := downloadImage(ctx, url)
-		if err != nil {
-			return "", err
+	var content []llms.MessageContent
+
+	{ // system prompt
+		if !a.settings.IsGoogleEnabled() { // langchaingo does not support gemini system prompt
+			parts := []llms.ContentPart{llms.TextPart(a.settings.SystemPrompt)}
+			content = append(content, llms.MessageContent{
+				Role:  llms.ChatMessageTypeSystem,
+				Parts: parts,
+			})
 		}
-		parts = append(parts, llms.BinaryPart("image/png", b))
 	}
-	parts = append(parts, llms.TextPart(input))
 
-	content := []llms.MessageContent{
-		{
+	chatHistory := a.loadHistory(ctx, user).ChatHistory
+	{ // chat history
+		cm, _ := chatHistory.Messages(ctx)
+		for _, m := range cm {
+			switch m.GetType() {
+			case llms.ChatMessageTypeHuman:
+				parts := []llms.ContentPart{llms.TextPart(m.GetContent())}
+				content = append(content, llms.MessageContent{
+					Role:  llms.ChatMessageTypeHuman,
+					Parts: parts,
+				})
+			case llms.ChatMessageTypeAI:
+				parts := []llms.ContentPart{llms.TextPart(m.GetContent())}
+				content = append(content, llms.MessageContent{
+					Role:  llms.ChatMessageTypeAI,
+					Parts: parts,
+				})
+			}
+		}
+	}
+
+	{ // user input
+		var parts []llms.ContentPart
+		for _, url := range imageURLs {
+			b, err := downloadImage(ctx, url)
+			if err != nil {
+				return "", err
+			}
+			parts = append(parts, llms.BinaryPart("image/png", b))
+		}
+		parts = append(parts, llms.TextPart(input))
+
+		content = append(content, llms.MessageContent{
 			Role:  llms.ChatMessageTypeHuman,
 			Parts: parts,
-		},
+		})
 	}
+
+	slog.Debug("[LLMAgent.Query]", "content", content)
+
 	resp, err := a.model.GenerateContent(ctx, content)
 	if err != nil {
 		return "", err
@@ -121,29 +134,20 @@ func (a *LLMAgent) QueryVision(ctx context.Context, user string, input string, i
 		return "", errors.New("no response")
 	}
 
+	// save chat history
+	if err := chatHistory.AddUserMessage(ctx, input); err != nil {
+		slog.Error("failed to save user message", "error", err)
+	}
+	if err := chatHistory.AddAIMessage(ctx, resp.Choices[0].Content); err != nil {
+		slog.Error("failed to save ai message", "error", err)
+	}
+
 	return resp.Choices[0].Content, nil
 }
 
 func NewLLMAgent(settings config.Settings) *LLMAgent {
-	pt := prompts.NewChatPromptTemplate([]prompts.MessageFormatter{
-		prompts.NewSystemMessagePromptTemplate(
-			"You are a helpful AI assistant. 记住：你回复用的语言需要和问题的语言一致。比如用户使用中文问你，你应该使用中文回复，其他的类同，总之你需要保持一致。",
-			nil,
-		),
-		// Insert history
-		prompts.NewGenericMessagePromptTemplate(
-			"history",
-			"\n{{index .historyMessages \"history\"}}\n",
-			[]string{"history"},
-		),
-		prompts.NewHumanMessagePromptTemplate(
-			`{{.question}}`,
-			[]string{"question"},
-		),
-	})
 	return &LLMAgent{
-		model:          buildModelFromConfig(settings),
-		promptTemplate: pt,
-		settings:       settings,
+		model:    buildModelFromConfig(settings),
+		settings: settings,
 	}
 }

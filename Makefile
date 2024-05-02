@@ -1,10 +1,10 @@
 GOARCH ?= $(shell go env GOARCH)
 BUILD_ARGS := -trimpath -ldflags "-s -w" $(BUILD_ARGS)
 OUTPUT ?= llmverse
+GOOS ?= $(shell go env GOOS)
 
 .PHONY: llmverse
 
-llmverse: export GOOS=linux
 ifndef CGO_ENABLED
 llmverse: export CGO_ENABLED=0
 endif
