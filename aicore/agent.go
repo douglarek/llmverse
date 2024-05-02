@@ -76,13 +76,11 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 	var content []llms.MessageContent
 
 	{ // system prompt
-		if !a.settings.IsGoogleEnabled() { // langchaingo does not support gemini system prompt
-			parts := []llms.ContentPart{llms.TextPart(a.settings.SystemPrompt)}
-			content = append(content, llms.MessageContent{
-				Role:  llms.ChatMessageTypeSystem,
-				Parts: parts,
-			})
-		}
+		parts := []llms.ContentPart{llms.TextPart(a.settings.SystemPrompt)}
+		content = append(content, llms.MessageContent{
+			Role:  llms.ChatMessageTypeSystem,
+			Parts: parts,
+		})
 	}
 
 	chatHistory := a.loadHistory(ctx, user).ChatHistory

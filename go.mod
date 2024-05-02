@@ -52,3 +52,5 @@ require (
 )
 
 replace github.com/gage-technologies/mistral-go v1.0.0 => github.com/gdumoulin/mistral-go v1.0.1-0.20240418082154-90d44f7549a7
+
+replace github.com/tmc/langchaingo v0.1.9 => github.com/douglarek/langchaingo v0.0.0-20240502165149-65a1bd5046c7
