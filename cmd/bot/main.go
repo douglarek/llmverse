@@ -32,7 +32,7 @@ func main() {
 	flag.Parse()
 
 	if err := godotenv.Load(*envFile); err != nil {
-		slog.Error("cannot load env file", "error", err)
+		slog.Error("[main]: cannot load env file", "error", err)
 		return
 	}
 
@@ -47,9 +47,9 @@ func main() {
 	s.AddIntents(gateway.IntentGuildMessages)  // when @mentioned
 	s.AddHandler(messageHandler(s, aicore.NewLLMAgent(settings)))
 
-	slog.Info("starting bot")
+	slog.Info("[main]: starting bot")
 	if err := s.Connect(context.TODO()); err != nil {
-		slog.Error("cannot connect", "error", err)
+		slog.Error("[main]: cannot connect", "error", err)
 	}
 }
 
@@ -74,7 +74,7 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 
 		s.React(e.ChannelID, e.ID, "💬")
 		s.Typing(e.ChannelID)
-		slog.Debug("received message", "content", e.Content, "author", e.Author.Username, "channel", e.ChannelID, "guild", e.GuildID)
+		slog.Debug("[main.messageHandler]: received message", "content", e.Content, "author", e.Author.Username, "channel", e.ChannelID, "guild", e.GuildID)
 		rawConent := strings.TrimLeftFunc(regexp.MustCompile("<[^>]+>").ReplaceAllString(e.Content, ""), unicode.IsSpace)
 
 		if rawConent == "$clear" {
@@ -103,7 +103,7 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 
 		if err != nil {
 			if _, err := s.SendMessageReply(e.ChannelID, fmt.Sprintf("An error occurred: %v", err), e.ID); err != nil {
-				slog.Error("cannot send message", "error", err)
+				slog.Error("[main.messageHandler]: cannot send message", "error", err)
 			}
 		} else {
 			if len(resp) > 2000 {
@@ -112,7 +112,7 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 					Reference: &discord.MessageReference{MessageID: e.ID},
 					Files:     []sendpart.File{{Name: "message.md", Reader: strings.NewReader(resp)}},
 				}); err != nil {
-					slog.Error("cannot send message", "error", err)
+					slog.Error("[main.messageHandler]: cannot send message", "error", err)
 				}
 				return
 			}
@@ -120,7 +120,7 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 				resp = "🤖 no response" // groq
 			}
 			if _, err := s.SendMessageReply(e.ChannelID, resp, e.ID); err != nil {
-				slog.Error("cannot send message", "error", err)
+				slog.Error("[main.messageHandler]: cannot send message", "error", err)
 			}
 		}
 	}

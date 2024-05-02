@@ -68,7 +68,7 @@ func downloadImage(_ context.Context, url string) ([]byte, error) {
 }
 
 func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageURLs []string) (string, error) {
-	slog.Info("query", "user", user, "input", input, "imageURLs", imageURLs)
+	slog.Info("[LLMAgent.Query] query", "user", user, "input", input, "imageURLs", imageURLs)
 	if len(imageURLs) > 0 && !a.settings.HasVision() {
 		return "", errors.New("vision of current model not enabled")
 	}
@@ -136,10 +136,10 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 
 	// save chat history
 	if err := chatHistory.AddUserMessage(ctx, input); err != nil {
-		slog.Error("failed to save user message", "error", err)
+		slog.Error("[LLMAgent.Query] failed to save user message", "error", err)
 	}
 	if err := chatHistory.AddAIMessage(ctx, resp.Choices[0].Content); err != nil {
-		slog.Error("failed to save ai message", "error", err)
+		slog.Error("[LLMAgent.Query] failed to save ai message", "error", err)
 	}
 
 	return resp.Choices[0].Content, nil
