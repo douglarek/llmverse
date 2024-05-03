@@ -8,12 +8,14 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/state"
+	"github.com/diamondburned/arikawa/v3/utils/json/option"
 	"github.com/diamondburned/arikawa/v3/utils/sendpart"
 	"github.com/douglarek/llmverse/aicore"
 	"github.com/douglarek/llmverse/config"
@@ -84,7 +86,7 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 		}
 
 		var imageURLs []string
-		var resp string
+		var resp any
 		var err error
 		if len(e.Attachments) > 0 {
 			for _, a := range e.Attachments {
@@ -105,22 +107,62 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 			if _, err := s.SendMessageReply(e.ChannelID, fmt.Sprintf("An error occurred: %v", err), e.ID); err != nil {
 				slog.Error("[main.messageHandler]: cannot send message", "error", err)
 			}
-		} else {
-			if len(resp) > 2000 {
-				if _, err := s.SendMessageComplex(e.ChannelID, api.SendMessageData{
-					Content:   resp[:2000],
-					Reference: &discord.MessageReference{MessageID: e.ID},
-					Files:     []sendpart.File{{Name: "message.md", Reader: strings.NewReader(resp)}},
-				}); err != nil {
-					slog.Error("[main.messageHandler]: cannot send message", "error", err)
-				}
+			return
+		}
+
+		switch output := resp.(type) {
+		case string:
+			if _, err := s.SendMessageReply(e.ChannelID, output, e.ID); err != nil {
+				slog.Error("[main.messageHandler]: cannot send message", "error", err)
+			}
+		case <-chan string:
+			var message string
+			var mID discord.MessageID
+			m, err := s.SendMessageReply(e.ChannelID, "✏️ ...", e.ID)
+			if err != nil {
+				slog.Error("[main.messageHandler]: cannot send message", "error", err)
 				return
 			}
-			if len(resp) == 0 {
-				resp = "🤖 no response" // groq
-			}
-			if _, err := s.SendMessageReply(e.ChannelID, resp, e.ID); err != nil {
-				slog.Error("[main.messageHandler]: cannot send message", "error", err)
+			mID = m.ID
+
+			tk := time.NewTicker(1 * time.Second)
+		L:
+			for {
+				select {
+				case <-tk.C:
+					if len(message) > 2000 {
+						continue
+					}
+					if _, err := s.EditMessage(e.ChannelID, mID, message); err != nil {
+						slog.Error("[main.messageHandler]: cannot edit message", "error", err)
+						return
+					}
+				default:
+					chunk, ok := <-output
+					if !ok {
+						time.Sleep(1 * time.Second) // discord 429 case
+						if len(message) > 2000 {
+							for chunk := range output {
+								message += chunk
+							}
+							if _, err := s.EditMessageComplex(e.ChannelID, mID, api.EditMessageData{
+								Content: option.NewNullableString(message[:2000]),
+								Files:   []sendpart.File{{Name: "message.md", Reader: strings.NewReader(message)}},
+							}); err != nil {
+								slog.Error("[main.messageHandler]: cannot edit message", "error", err)
+							}
+							return
+						}
+						if _, err := s.EditMessage(e.ChannelID, mID, message); err != nil {
+							slog.Error("[main.messageHandler]: cannot edit message", "error", err)
+							return
+						}
+
+						tk.Stop()
+						break L
+					}
+					message += chunk
+				}
 			}
 		}
 	}

@@ -83,10 +83,15 @@ func downloadImage(_ context.Context, url string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageURLs []string) (string, error) {
+func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageURLs []string) (<-chan string, error) {
 	slog.Info("[LLMAgent.Query] query", "user", user, "input", input, "imageURLs", imageURLs)
+
+	output := make(chan string)
+	var err error
+
 	if len(imageURLs) > 0 && !a.settings.HasVision() {
-		return "", errors.New("vision of current model not enabled")
+		close(output)
+		return output, errors.New("vision of current model not enabled")
 	}
 
 	var content []llms.MessageContent
@@ -125,7 +130,8 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 		for _, url := range imageURLs {
 			b, err := downloadImage(ctx, url)
 			if err != nil {
-				return "", err
+				close(output)
+				return output, err
 			}
 			parts = append(parts, llms.BinaryPart("image/png", b))
 		}
@@ -139,24 +145,35 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 
 	slog.Debug("[LLMAgent.Query]", "content", content)
 
-	resp, err := a.model.GenerateContent(ctx, content, llms.WithTemperature(a.settings.Temperature))
-	if err != nil {
-		return "", err
-	}
+	go func() {
+		defer close(output)
+		var isStreaming bool
+		var options []llms.CallOption
+		options = append(options, llms.WithTemperature(a.settings.Temperature))
+		options = append(options, llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
+			output <- string(chunk)
+			isStreaming = true
+			return nil
+		}))
+		resp, err := a.model.GenerateContent(ctx, content, options...)
+		if err != nil {
+			output <- err.Error()
+			return
+		}
+		if !isStreaming {
+			slog.Debug("[LLMAgent.Query] current model does not support streaming")
+			output <- resp.Choices[0].Content
+		}
+		// save chat history
+		if err := chatHistory.AddUserMessage(ctx, input); err != nil {
+			slog.Error("[LLMAgent.Query] failed to save user message", "error", err)
+		}
+		if err := chatHistory.AddAIMessage(ctx, resp.Choices[0].Content); err != nil {
+			slog.Error("[LLMAgent.Query] failed to save ai message", "error", err)
+		}
+	}()
 
-	if len(resp.Choices) == 0 {
-		return "", errors.New("no response")
-	}
-
-	// save chat history
-	if err := chatHistory.AddUserMessage(ctx, input); err != nil {
-		slog.Error("[LLMAgent.Query] failed to save user message", "error", err)
-	}
-	if err := chatHistory.AddAIMessage(ctx, resp.Choices[0].Content); err != nil {
-		slog.Error("[LLMAgent.Query] failed to save ai message", "error", err)
-	}
-
-	return resp.Choices[0].Content, nil
+	return output, err
 }
 
 func NewLLMAgent(settings config.Settings) *LLMAgent {
