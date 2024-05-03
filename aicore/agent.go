@@ -27,7 +27,9 @@ func buildModelFromConfig(settings config.Settings) llms.Model {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if settings.IsGoogleEnabled() {
+	if settings.IsOpenAIEnabled() {
+		model, err = openai.New(openai.WithToken(settings.OpenAIAPIKey), openai.WithModel(settings.OpenAIModel), openai.WithBaseURL(settings.OpenAIBaseURL))
+	} else if settings.IsGoogleEnabled() {
 		model, err = googleai.New(ctx, googleai.WithAPIKey(settings.GoogleAPIKey), googleai.WithDefaultModel(settings.GoogleAPIModel), googleai.WithHarmThreshold(googleai.HarmBlockNone))
 	} else if settings.IsGroqEnabled() {
 		model, err = openai.New(openai.WithBaseURL(settings.GroqEndpoint), openai.WithToken(settings.GroqAPIKey), openai.WithModel(settings.GroqModel))

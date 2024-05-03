@@ -7,9 +7,12 @@ import (
 type Settings struct {
 	DiscordBotToken      string  `env:"DISCORD_BOT_TOKEN,required"`
 	EnableDebug          bool    `env:"ENABLE_DEBUG"`
-	SystemPrompt         string  `env:"SYSTEM_PROMPT" envDefault:"You are a helpful AI assistant. 记住：如无特别要求使用中文回复。"`
+	SystemPrompt         string  `env:"SYSTEM_PROMPT" envDefault:"You are a helpful AI assistant."`
 	Temperature          float64 `env:"TEMPERATURE" envDefault:"0.7"`
 	HistoryMaxSize       int     `env:"HISTORY_MAX_SIZE" envDefault:"8192"`
+	OpenAIAPIKey         string  `env:"OPENAI_API_KEY"`
+	OpenAIBaseURL        string  `env:"OPENAI_BASE_URL" envDefault:"https://api.openai.com/v1"`
+	OpenAIModel          string  `env:"OPENAI_MODEL" envDefault:"gpt-4"`
 	GoogleAPIKey         string  `env:"GOOGLE_API_KEY"`
 	GoogleAPIModel       string  `env:"GOOGLE_API_MODEL" envDefault:"gemini-1.5-pro-latest"`
 	MistralAPIKey        string  `env:"MISTRAL_API_KEY"`
@@ -21,6 +24,10 @@ type Settings struct {
 	AWSBedrockModelID    string  `env:"AWS_BEDROCK_MODEL_ID" envDefault:"anthropic.claude-3-sonnet-20240229-v1:0"`
 	AWSAccessKeyID       string  `env:"AWS_ACCESS_KEY_ID"`
 	AWSSecretAccessKey   string  `env:"AWS_SECRET_ACCESS_KEY"`
+}
+
+func (s Settings) IsOpenAIEnabled() bool {
+	return s.OpenAIAPIKey != "" && s.OpenAIModel != "" && s.OpenAIBaseURL != ""
 }
 
 func (s Settings) IsGoogleEnabled() bool {
