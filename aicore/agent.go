@@ -9,8 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/douglarek/llmverse/config"
 	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/bedrock"
 	"github.com/tmc/langchaingo/llms/googleai"
 	"github.com/tmc/langchaingo/llms/mistral"
 	"github.com/tmc/langchaingo/llms/openai"
@@ -30,6 +33,17 @@ func buildModelFromConfig(settings config.Settings) llms.Model {
 		model, err = openai.New(openai.WithBaseURL(settings.GroqEndpoint), openai.WithToken(settings.GroqAPIKey), openai.WithModel(settings.GroqModel))
 	} else if settings.IsMistralEnabled() {
 		model, err = mistral.New(mistral.WithAPIKey(settings.MistralAPIKey), mistral.WithModel(settings.MistralModel))
+	} else if settings.IsBedrockEnabled() {
+		options := bedrockruntime.New(bedrockruntime.Options{
+			Region: settings.AWSBedrockRegionName,
+			Credentials: aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
+				return aws.Credentials{
+					AccessKeyID:     settings.AWSAccessKeyID,
+					SecretAccessKey: settings.AWSSecretAccessKey,
+				}, nil
+			}),
+		})
+		model, err = bedrock.New(bedrock.WithModel(settings.AWSBedrockModelID), bedrock.WithClient(options))
 	} else {
 		panic("no model available")
 	}
@@ -123,7 +137,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 
 	slog.Debug("[LLMAgent.Query]", "content", content)
 
-	resp, err := a.model.GenerateContent(ctx, content)
+	resp, err := a.model.GenerateContent(ctx, content, llms.WithTemperature(a.settings.Temperature))
 	if err != nil {
 		return "", err
 	}
