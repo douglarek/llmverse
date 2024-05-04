@@ -124,6 +124,7 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 				return
 			}
 			mID = m.ID
+			s.Typing(e.ChannelID)
 
 			tk := time.NewTicker(1 * time.Second)
 		L:
@@ -133,7 +134,7 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 					if len(message) > 2000 {
 						continue
 					}
-					if _, err := s.EditMessage(e.ChannelID, mID, message); err != nil {
+					if _, err := s.EditMessage(e.ChannelID, mID, message+" ✏️ ..."); err != nil {
 						slog.Error("[main.messageHandler]: cannot edit message", "error", err)
 						return
 					}
