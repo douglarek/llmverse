@@ -161,7 +161,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 			return
 		}
 		if !isStreaming {
-			slog.Debug("[LLMAgent.Query] current model does not support streaming")
+			slog.Warn("[LLMAgent.Query] current model does not support streaming")
 			output <- resp.Choices[0].Content
 		}
 		// save chat history
