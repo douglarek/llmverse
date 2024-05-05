@@ -8,7 +8,7 @@ require (
 	github.com/caarlos0/env/v11 v11.0.0
 	github.com/diamondburned/arikawa/v3 v3.3.6
 	github.com/joho/godotenv v1.5.1
-	github.com/tmc/langchaingo v0.1.9
+	github.com/tmc/langchaingo v0.1.10-0.20240504234223-7d84324b2bfe
 )
 
 require (
@@ -37,6 +37,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/generative-ai-go v0.11.0 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -44,7 +45,14 @@ require (
 	github.com/googleapis/gax-go/v2 v2.12.3 // indirect
 	github.com/gorilla/schema v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
+	github.com/klauspost/compress v1.17.2 // indirect
+	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe // indirect
 	github.com/pkoukk/tiktoken-go v0.1.6 // indirect
+	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
+	github.com/xdg-go/scram v1.1.2 // indirect
+	github.com/xdg-go/stringprep v1.0.4 // indirect
+	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
+	go.mongodb.org/mongo-driver v1.13.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.49.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect
@@ -67,5 +75,3 @@ require (
 )
 
 replace github.com/gage-technologies/mistral-go v1.0.0 => github.com/gdumoulin/mistral-go v1.0.1-0.20240418082154-90d44f7549a7
-
-replace github.com/tmc/langchaingo v0.1.9 => github.com/douglarek/langchaingo v0.0.0-20240502165149-65a1bd5046c7
