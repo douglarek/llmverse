@@ -9,7 +9,8 @@ import (
 type Settings struct {
 	DiscordBotToken string   `json:"discord_bot_token"`
 	EnableDebug     bool     `json:"enable_debug"`     // optional, default: false
-	HistoryMaxSize  *int     `json:"history_max_size"` // optional, default: 8192
+	HistoryMaxSize  *int     `json:"history_max_size"` // optional, default: 2048
+	OutputMaxSize   *int     `json:"output_max_size"`  // optional, default: 8192. note: context_windows >= history_max_size + output_max_size + discord_message_limit(about 2048 tokens)
 	SystemPrompt    string   `json:"system_prompt"`    // optional, default: "You are a helpful AI assistant."
 	Temperature     *float64 `json:"temperature"`      // optional, default: 0.7
 	Models          struct {
@@ -40,7 +41,12 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 
 	if s.HistoryMaxSize == nil {
 		s.HistoryMaxSize = new(int)
-		*s.HistoryMaxSize = 8192
+		*s.HistoryMaxSize = 2048
+	}
+
+	if s.OutputMaxSize == nil {
+		s.OutputMaxSize = new(int)
+		*s.OutputMaxSize = 4096
 	}
 
 	if s.SystemPrompt == "" {

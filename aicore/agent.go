@@ -149,7 +149,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 		defer close(output)
 		var isStreaming bool
 		var options []llms.CallOption
-		options = append(options, llms.WithTemperature(*a.settings.Temperature), llms.WithMaxTokens(*a.settings.HistoryMaxSize))
+		options = append(options, llms.WithTemperature(*a.settings.Temperature), llms.WithMaxTokens(*a.settings.OutputMaxSize))
 		options = append(options, llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
 			output <- string(chunk)
 			isStreaming = true
