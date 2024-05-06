@@ -1,0 +1,38 @@
+{
+    "discord_bot_token": "",
+    "enable_debug": false,
+    "history_max_size": 8192,
+    "system_prompt": "You are a helpful AI assistant.",
+    "temperature": 0.7,
+    "models": {
+        "aws_bedrock": {
+            "access_key_id": "",
+            "enabled": false,
+            "model_id": "anthropic.claude-3-sonnet-20240229-v1:0",
+            "region_name": "us-west-2",
+            "secret_access_key": ""
+        },
+        "google": {
+            "api_key": "",
+            "enabled": false,
+            "model": "gemini-1.5-pro-latest"
+        },
+        "groq": {
+            "api_key": "",
+            "base_url": "https://api.groq.com/openai/v1",
+            "enabled": false,
+            "model": "llama3-70b-8192"
+        },
+        "mistral": {
+            "api_key": "",
+            "enabled": false,
+            "model": "mistral-large-latest"
+        },
+        "openai": {
+            "api_key": "",
+            "base_url": "https://api.openai.com/v1",
+            "enabled": false,
+            "model": "gpt-4"
+        }
+    }
+}

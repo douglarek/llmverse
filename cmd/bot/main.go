@@ -19,10 +19,9 @@ import (
 	"github.com/diamondburned/arikawa/v3/utils/sendpart"
 	"github.com/douglarek/llmverse/aicore"
 	"github.com/douglarek/llmverse/config"
-	"github.com/joho/godotenv"
 )
 
-var envFile = flag.String("env-file", ".env", "path to env file")
+var configFile = flag.String("config-file", "config.json", "path to config file")
 var slogLevel = new(slog.LevelVar)
 
 func init() {
@@ -33,12 +32,12 @@ func init() {
 func main() {
 	flag.Parse()
 
-	if err := godotenv.Load(*envFile); err != nil {
-		slog.Error("[main]: cannot load env file", "error", err)
+	settings, err := config.LoadSettings(*configFile)
+	if err != nil {
+		slog.Error("[main]: cannot load settings", "error", err)
 		return
-	}
 
-	settings := config.Load()
+	}
 	if settings.EnableDebug {
 		slogLevel.Set(slog.LevelDebug)
 	}

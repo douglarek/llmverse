@@ -5,9 +5,7 @@ go 1.22.2
 require (
 	github.com/aws/aws-sdk-go-v2 v1.25.2
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.7.1
-	github.com/caarlos0/env/v11 v11.0.0
 	github.com/diamondburned/arikawa/v3 v3.3.6
-	github.com/joho/godotenv v1.5.1
 	github.com/tmc/langchaingo v0.1.10-0.20240504234223-7d84324b2bfe
 )
 

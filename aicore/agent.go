@@ -28,24 +28,24 @@ func buildModelFromConfig(settings config.Settings) llms.Model {
 	defer cancel()
 
 	if settings.IsOpenAIEnabled() {
-		model, err = openai.New(openai.WithToken(settings.OpenAIAPIKey), openai.WithModel(settings.OpenAIModel), openai.WithBaseURL(settings.OpenAIBaseURL))
+		model, err = openai.New(openai.WithToken(settings.Models.OpenAI.APIKey), openai.WithModel(settings.Models.OpenAI.Model), openai.WithBaseURL(settings.Models.OpenAI.BaseURL))
 	} else if settings.IsGoogleEnabled() {
-		model, err = googleai.New(ctx, googleai.WithAPIKey(settings.GoogleAPIKey), googleai.WithDefaultModel(settings.GoogleAPIModel), googleai.WithHarmThreshold(googleai.HarmBlockNone))
+		model, err = googleai.New(ctx, googleai.WithAPIKey(settings.Models.Google.APIKey), googleai.WithDefaultModel(settings.Models.Google.Model), googleai.WithHarmThreshold(googleai.HarmBlockNone))
 	} else if settings.IsGroqEnabled() {
-		model, err = openai.New(openai.WithBaseURL(settings.GroqEndpoint), openai.WithToken(settings.GroqAPIKey), openai.WithModel(settings.GroqModel))
+		model, err = openai.New(openai.WithBaseURL(settings.Models.Groq.BaseURL), openai.WithToken(settings.Models.Groq.APIKey), openai.WithModel(settings.Models.Groq.Model))
 	} else if settings.IsMistralEnabled() {
-		model, err = mistral.New(mistral.WithAPIKey(settings.MistralAPIKey), mistral.WithModel(settings.MistralModel))
+		model, err = mistral.New(mistral.WithAPIKey(settings.Models.Mistral.APIKey), mistral.WithModel(settings.Models.Mistral.Model))
 	} else if settings.IsBedrockEnabled() {
 		options := bedrockruntime.New(bedrockruntime.Options{
-			Region: settings.AWSBedrockRegionName,
+			Region: settings.Models.Bedrock.RegionName,
 			Credentials: aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
 				return aws.Credentials{
-					AccessKeyID:     settings.AWSAccessKeyID,
-					SecretAccessKey: settings.AWSSecretAccessKey,
+					AccessKeyID:     settings.Models.Bedrock.AccessKeyID,
+					SecretAccessKey: settings.Models.Bedrock.SecretAccessKey,
 				}, nil
 			}),
 		})
-		model, err = bedrock.New(bedrock.WithModel(settings.AWSBedrockModelID), bedrock.WithClient(options))
+		model, err = bedrock.New(bedrock.WithModel(settings.Models.Bedrock.ModelID), bedrock.WithClient(options))
 	} else {
 		panic("no model available")
 	}
@@ -64,7 +64,7 @@ type LLMAgent struct {
 }
 
 func (a *LLMAgent) loadHistory(_ context.Context, user string) *memory.ConversationTokenBuffer {
-	v, _ := a.history.LoadOrStore(user, memory.NewConversationTokenBuffer(a.model, a.settings.HistoryMaxSize))
+	v, _ := a.history.LoadOrStore(user, memory.NewConversationTokenBuffer(a.model, *a.settings.HistoryMaxSize))
 	return v.(*memory.ConversationTokenBuffer)
 }
 
@@ -149,7 +149,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 		defer close(output)
 		var isStreaming bool
 		var options []llms.CallOption
-		options = append(options, llms.WithTemperature(a.settings.Temperature), llms.WithMaxTokens(a.settings.HistoryMaxSize))
+		options = append(options, llms.WithTemperature(*a.settings.Temperature), llms.WithMaxTokens(*a.settings.HistoryMaxSize))
 		options = append(options, llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
 			output <- string(chunk)
 			isStreaming = true

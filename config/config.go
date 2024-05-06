@@ -1,58 +1,120 @@
 package config
 
 import (
-	"github.com/caarlos0/env/v11"
+	"encoding/json"
+	"errors"
+	"os"
 )
 
 type Settings struct {
-	DiscordBotToken      string  `env:"DISCORD_BOT_TOKEN,required"`
-	EnableDebug          bool    `env:"ENABLE_DEBUG"`
-	SystemPrompt         string  `env:"SYSTEM_PROMPT" envDefault:"You are a helpful AI assistant."`
-	Temperature          float64 `env:"TEMPERATURE" envDefault:"0.7"`
-	HistoryMaxSize       int     `env:"HISTORY_MAX_SIZE" envDefault:"8192"`
-	OpenAIAPIKey         string  `env:"OPENAI_API_KEY"`
-	OpenAIBaseURL        string  `env:"OPENAI_BASE_URL" envDefault:"https://api.openai.com/v1"`
-	OpenAIModel          string  `env:"OPENAI_MODEL" envDefault:"gpt-4"`
-	GoogleAPIKey         string  `env:"GOOGLE_API_KEY"`
-	GoogleAPIModel       string  `env:"GOOGLE_API_MODEL" envDefault:"gemini-1.5-pro-latest"`
-	MistralAPIKey        string  `env:"MISTRAL_API_KEY"`
-	MistralModel         string  `env:"MISTRAL_MODEL" envDefault:"mistral-medium-latest"`
-	GroqAPIKey           string  `env:"GROQ_API_KEY"`
-	GroqModel            string  `env:"GROQ_MODEL" envDefault:"llama3-70b-8192"`
-	GroqEndpoint         string  `env:"GROQ_ENDPOINT" envDefault:"https://api.groq.com/openai/v1"`
-	AWSBedrockRegionName string  `env:"AWS_BEDROCK_REGION_NAME" envDefault:"us-west-2"`
-	AWSBedrockModelID    string  `env:"AWS_BEDROCK_MODEL_ID" envDefault:"anthropic.claude-3-sonnet-20240229-v1:0"`
-	AWSAccessKeyID       string  `env:"AWS_ACCESS_KEY_ID"`
-	AWSSecretAccessKey   string  `env:"AWS_SECRET_ACCESS_KEY"`
+	DiscordBotToken string   `json:"discord_bot_token"`
+	EnableDebug     bool     `json:"enable_debug"`     // optional, default: false
+	HistoryMaxSize  *int     `json:"history_max_size"` // optional, default: 8192
+	SystemPrompt    string   `json:"system_prompt"`    // optional, default: "You are a helpful AI assistant."
+	Temperature     *float64 `json:"temperature"`      // optional, default: 0.7
+	Models          struct {
+		OpenAI  *openai  `json:"openai"`
+		Google  *google  `json:"google"`
+		Mistral *mistral `json:"mistral"`
+		Groq    *groq    `json:"groq"`
+		Bedrock *bedrock `json:"aws_bedrock"`
+	} `json:"models"`
+}
+
+var _ json.Unmarshaler = (*Settings)(nil)
+
+func (s *Settings) UnmarshalJSON(data []byte) error {
+	type Alias Settings
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(s),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if s.DiscordBotToken == "" {
+		return errors.New("discord_bot_token is required")
+	}
+
+	if s.HistoryMaxSize == nil {
+		s.HistoryMaxSize = new(int)
+		*s.HistoryMaxSize = 8192
+	}
+
+	if s.SystemPrompt == "" {
+		s.SystemPrompt = "You are a helpful AI assistant."
+	}
+
+	if s.Temperature == nil {
+		s.Temperature = new(float64)
+		*s.Temperature = 0.7
+	}
+
+	// at most one model can be enabled and at least one model must be enabled
+	var enabledModels int
+
+	if s.IsOpenAIEnabled() {
+		enabledModels++
+	}
+	if s.IsGoogleEnabled() {
+		enabledModels++
+	}
+	if s.IsMistralEnabled() {
+		enabledModels++
+	}
+	if s.IsGroqEnabled() {
+		enabledModels++
+	}
+	if s.IsBedrockEnabled() {
+		enabledModels++
+	} // added if statement when new model is added
+
+	if enabledModels == 0 {
+		return errors.New("at least one model must be enabled")
+	}
+
+	if enabledModels > 1 {
+		return errors.New("only one model can be enabled")
+	}
+
+	return nil
 }
 
 func (s Settings) IsOpenAIEnabled() bool {
-	return s.OpenAIAPIKey != "" && s.OpenAIModel != "" && s.OpenAIBaseURL != ""
+	return s.Models.OpenAI != nil && s.Models.OpenAI.Enabled
 }
 
 func (s Settings) IsGoogleEnabled() bool {
-	return s.GoogleAPIKey != "" && s.GoogleAPIModel != ""
+	return s.Models.Google != nil && s.Models.Google.Enabled
 }
 
 func (s Settings) IsMistralEnabled() bool {
-	return s.MistralAPIKey != "" && s.MistralModel != ""
+	return s.Models.Mistral != nil && s.Models.Mistral.Enabled
 }
 
 func (s Settings) IsGroqEnabled() bool {
-	return s.GroqAPIKey != "" && s.GroqModel != ""
+	return s.Models.Groq != nil && s.Models.Groq.Enabled
 }
 
 func (s Settings) IsBedrockEnabled() bool {
-	return s.AWSAccessKeyID != "" && s.AWSSecretAccessKey != "" && s.AWSBedrockModelID != "" && s.AWSBedrockRegionName != ""
+	return s.Models.Bedrock != nil && s.Models.Bedrock.Enabled
 }
 
 func (s Settings) HasVision() bool {
 	return s.IsGoogleEnabled() || s.IsBedrockEnabled()
 }
-func Load() Settings {
-	var settings Settings
-	if err := env.Parse(&settings); err != nil {
-		panic(err)
+
+func LoadSettings(filePath string) (Settings, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return Settings{}, err
 	}
-	return settings
+
+	var config Settings
+	if err := json.Unmarshal(data, &config); err != nil {
+		return Settings{}, err
+	}
+	return config, nil
 }
