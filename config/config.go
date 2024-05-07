@@ -129,7 +129,7 @@ func (s Settings) IsVisionSupported() bool {
 }
 
 func (s Settings) IsToolSupported() bool {
-	return s.IsGoogleEnabled()
+	return s.IsOpenAIEnabled() || s.IsGoogleEnabled()
 }
 
 func LoadSettings(filePath string) (Settings, error) {

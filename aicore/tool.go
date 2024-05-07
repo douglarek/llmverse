@@ -2,12 +2,15 @@ package aicore
 
 import (
 	"context"
+	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/tmc/langchaingo/llms"
 )
 
+// availableTools is a list of tools that the agent can use to help answer questions.
 var availableTools = []llms.Tool{
 	{
 		Type: "function",
@@ -36,6 +39,8 @@ var availableTools = []llms.Tool{
 	},
 }
 
+// getExchangeRate is a helper function that makes a request to the Frankfurter API
+// to get the exchange rate for currencies between countries.
 func getExchangeRate(ctx context.Context, currencyDate string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.frankfurter.app/"+currencyDate, nil)
 	if err != nil {
@@ -50,4 +55,57 @@ func getExchangeRate(ctx context.Context, currencyDate string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	return io.ReadAll(resp.Body)
+}
+
+// executeToolCalls is a helper function that parses the response from a tool call
+// and returns the content to be sent to the user, whether the response should be
+// returned directly to the user, and any error that occurred.
+func executeToolCalls(ctx context.Context, model llms.Model, options []llms.CallOption, content []llms.MessageContent) ([]llms.MessageContent, bool, error) { // content, return_direct, error
+	resp, err := model.GenerateContent(ctx, content, options...)
+	if err != nil {
+		return nil, false, err
+	}
+
+	respChoice := resp.Choices[0]
+	ar := llms.TextParts(llms.ChatMessageTypeAI, respChoice.Content)
+	if len(respChoice.ToolCalls) == 0 {
+		content = append(content, ar)
+		return content, true, nil
+	}
+
+	for _, tc := range respChoice.ToolCalls {
+		ar.Parts = append(ar.Parts, tc)
+	}
+	content = append(content, ar)
+
+	for _, tc := range respChoice.ToolCalls {
+		switch tc.FunctionCall.Name {
+		case "getExchangeRate":
+			var args struct {
+				CurrencyDate string `json:"currency_date"`
+			}
+			if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &args); err != nil {
+				return nil, false, err
+			}
+			rs, err := getExchangeRate(ctx, args.CurrencyDate)
+			if err != nil {
+				return nil, false, err
+			}
+			tr := llms.MessageContent{
+				Role: llms.ChatMessageTypeTool,
+				Parts: []llms.ContentPart{
+					llms.ToolCallResponse{
+						ToolCallID: tc.ID,
+						Name:       tc.FunctionCall.Name,
+						Content:    string(rs),
+					},
+				},
+			}
+			content = append(content, tr)
+		default:
+			slog.Error("[LLMAgent.Query] unknown tool call", "name", tc.FunctionCall.Name)
+		}
+	}
+
+	return content, false, nil
 }
