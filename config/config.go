@@ -14,12 +14,13 @@ type Settings struct {
 	SystemPrompt    string   `json:"system_prompt"`    // optional, default: "You are a helpful AI assistant."
 	Temperature     *float64 `json:"temperature"`      // optional, default: 0.7
 	Models          struct {
-		OpenAI  *openai  `json:"openai"`
-		Google  *google  `json:"google"`
-		Mistral *mistral `json:"mistral"`
-		Groq    *groq    `json:"groq"`
-		Bedrock *bedrock `json:"aws_bedrock"`
-		Azure   *azure   `json:"azure"`
+		OpenAI   *openai   `json:"openai"`
+		Google   *google   `json:"google"`
+		Mistral  *mistral  `json:"mistral"`
+		Groq     *groq     `json:"groq"`
+		Bedrock  *bedrock  `json:"aws_bedrock"`
+		Azure    *azure    `json:"azure"`
+		Deepseek *deepseek `json:"deepseek"`
 	} `json:"models"`
 }
 
@@ -79,6 +80,9 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 	}
 	if s.IsAzureEnabled() {
 		enabledModels++
+	}
+	if s.IsDeepseekEnabled() {
+		enabledModels++
 	} // added if statement when new model is added
 
 	if enabledModels == 0 {
@@ -114,6 +118,10 @@ func (s Settings) IsBedrockEnabled() bool {
 
 func (s Settings) IsAzureEnabled() bool {
 	return s.Models.Azure != nil && s.Models.Azure.Enabled
+}
+
+func (s Settings) IsDeepseekEnabled() bool {
+	return s.Models.Deepseek != nil && s.Models.Deepseek.Enabled
 }
 
 func (s Settings) HasVision() bool {

@@ -72,6 +72,12 @@ func buildModelFromConfig(settings config.Settings) llms.Model {
 			openai.WithAPIVersion(settings.Models.Azure.APIVersion),
 			openai.WithAPIType(openai.APITypeAzure),
 		)
+	} else if settings.IsDeepseekEnabled() {
+		model, err = openai.New(
+			openai.WithToken(settings.Models.Deepseek.APIKey),
+			openai.WithBaseURL(settings.Models.Deepseek.BaseURL),
+			openai.WithModel(settings.Models.Deepseek.Model),
+		)
 	} else {
 		panic("no model available")
 	}

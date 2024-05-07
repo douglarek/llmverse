@@ -226,3 +226,40 @@ func (a *azure) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
+
+type deepseek struct {
+	Enabled bool   `json:"enabled"`
+	APIKey  string `json:"api_key"`
+	BaseURL string `json:"base_url"` // optional, default: "https://api.deepseek.com/v1"
+	Model   string `json:"model"`    // optional, default: "deepseek-chat"
+}
+
+var _ json.Unmarshaler = (*deepseek)(nil)
+
+func (d *deepseek) UnmarshalJSON(data []byte) error {
+	type Alias deepseek
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(d),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if d.Enabled {
+		if d.APIKey == "" {
+			return errors.New("deepseek api_key is required")
+		}
+
+		if d.BaseURL == "" {
+			d.BaseURL = "https://api.deepseek.com/v1"
+		}
+
+		if d.Model == "" {
+			d.Model = "deepseek-chat"
+		}
+	}
+
+	return nil
+}
