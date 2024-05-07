@@ -28,13 +28,28 @@ func buildModelFromConfig(settings config.Settings) llms.Model {
 	defer cancel()
 
 	if settings.IsOpenAIEnabled() {
-		model, err = openai.New(openai.WithToken(settings.Models.OpenAI.APIKey), openai.WithModel(settings.Models.OpenAI.Model), openai.WithBaseURL(settings.Models.OpenAI.BaseURL))
+		model, err = openai.New(
+			openai.WithToken(settings.Models.OpenAI.APIKey),
+			openai.WithModel(settings.Models.OpenAI.Model),
+			openai.WithBaseURL(settings.Models.OpenAI.BaseURL),
+		)
 	} else if settings.IsGoogleEnabled() {
-		model, err = googleai.New(ctx, googleai.WithAPIKey(settings.Models.Google.APIKey), googleai.WithDefaultModel(settings.Models.Google.Model), googleai.WithHarmThreshold(googleai.HarmBlockNone))
+		model, err = googleai.New(ctx,
+			googleai.WithAPIKey(settings.Models.Google.APIKey),
+			googleai.WithDefaultModel(settings.Models.Google.Model),
+			googleai.WithHarmThreshold(googleai.HarmBlockNone),
+		)
 	} else if settings.IsGroqEnabled() {
-		model, err = openai.New(openai.WithBaseURL(settings.Models.Groq.BaseURL), openai.WithToken(settings.Models.Groq.APIKey), openai.WithModel(settings.Models.Groq.Model))
+		model, err = openai.New(
+			openai.WithBaseURL(settings.Models.Groq.BaseURL),
+			openai.WithToken(settings.Models.Groq.APIKey),
+			openai.WithModel(settings.Models.Groq.Model),
+		)
 	} else if settings.IsMistralEnabled() {
-		model, err = mistral.New(mistral.WithAPIKey(settings.Models.Mistral.APIKey), mistral.WithModel(settings.Models.Mistral.Model))
+		model, err = mistral.New(
+			mistral.WithAPIKey(settings.Models.Mistral.APIKey),
+			mistral.WithModel(settings.Models.Mistral.Model),
+		)
 	} else if settings.IsBedrockEnabled() {
 		options := bedrockruntime.New(bedrockruntime.Options{
 			Region: settings.Models.Bedrock.RegionName,
@@ -45,7 +60,18 @@ func buildModelFromConfig(settings config.Settings) llms.Model {
 				}, nil
 			}),
 		})
-		model, err = bedrock.New(bedrock.WithModel(settings.Models.Bedrock.ModelID), bedrock.WithClient(options))
+		model, err = bedrock.New(
+			bedrock.WithModel(settings.Models.Bedrock.ModelID),
+			bedrock.WithClient(options),
+		)
+	} else if settings.IsAzureEnabled() {
+		model, err = openai.New(
+			openai.WithToken(settings.Models.Azure.APIKey),
+			openai.WithModel(settings.Models.Azure.Model),
+			openai.WithBaseURL(settings.Models.Azure.BaseURL),
+			openai.WithAPIVersion(settings.Models.Azure.APIVersion),
+			openai.WithAPIType(openai.APITypeAzure),
+		)
 	} else {
 		panic("no model available")
 	}
@@ -81,6 +107,22 @@ func downloadImage(_ context.Context, url string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
+}
+
+func parseImageParts(s config.Settings, imageURLs []string) (parts []llms.ContentPart, err error) {
+	for _, url := range imageURLs {
+		if s.IsOpenAIEnabled() {
+			parts = append(parts, llms.ImageURLPart(url))
+		} else {
+			b, err := downloadImage(context.Background(), url)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, llms.BinaryPart("image/png", b))
+		}
+	}
+
+	return
 }
 
 func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageURLs []string) (<-chan string, error) {
@@ -127,23 +169,21 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 
 	{ // user input
 		var parts []llms.ContentPart
-		for _, url := range imageURLs {
-			b, err := downloadImage(ctx, url)
-			if err != nil {
-				close(output)
-				return output, err
-			}
-			parts = append(parts, llms.BinaryPart("image/png", b))
-		}
+
 		parts = append(parts, llms.TextPart(input))
+		slog.Debug("[LLMAgent.Query]", "parts", parts)
+
+		ps, err := parseImageParts(a.settings, imageURLs)
+		if err != nil {
+			return nil, err
+		}
+		parts = append(parts, ps...)
 
 		content = append(content, llms.MessageContent{
 			Role:  llms.ChatMessageTypeHuman,
 			Parts: parts,
 		})
 	}
-
-	slog.Debug("[LLMAgent.Query]", "content", content)
 
 	go func() {
 		defer close(output)

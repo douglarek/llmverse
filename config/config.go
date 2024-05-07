@@ -19,6 +19,7 @@ type Settings struct {
 		Mistral *mistral `json:"mistral"`
 		Groq    *groq    `json:"groq"`
 		Bedrock *bedrock `json:"aws_bedrock"`
+		Azure   *azure   `json:"azure"`
 	} `json:"models"`
 }
 
@@ -75,6 +76,9 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 	}
 	if s.IsBedrockEnabled() {
 		enabledModels++
+	}
+	if s.IsAzureEnabled() {
+		enabledModels++
 	} // added if statement when new model is added
 
 	if enabledModels == 0 {
@@ -108,8 +112,12 @@ func (s Settings) IsBedrockEnabled() bool {
 	return s.Models.Bedrock != nil && s.Models.Bedrock.Enabled
 }
 
+func (s Settings) IsAzureEnabled() bool {
+	return s.Models.Azure != nil && s.Models.Azure.Enabled
+}
+
 func (s Settings) HasVision() bool {
-	return s.IsGoogleEnabled() || s.IsBedrockEnabled()
+	return s.IsOpenAIEnabled() || s.IsGoogleEnabled() || s.IsBedrockEnabled()
 }
 
 func LoadSettings(filePath string) (Settings, error) {

@@ -184,3 +184,45 @@ func (b *bedrock) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
+
+type azure struct {
+	Enabled    bool   `json:"enabled"`
+	APIKey     string `json:"api_key"`
+	APIVersion string `json:"api_version"` // optional, default: "2024-02-01"
+	BaseURL    string `json:"base_url"`
+	Model      string `json:"model"` // optional, default: "gpt-4"
+}
+
+var _ json.Unmarshaler = (*azure)(nil)
+
+func (a *azure) UnmarshalJSON(data []byte) error {
+	type Alias azure
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(a),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if a.Enabled {
+		if a.APIKey == "" {
+			return errors.New("azure api_key is required")
+		}
+
+		if a.APIVersion == "" {
+			a.APIVersion = "2024-02-01"
+		}
+
+		if a.BaseURL == "" {
+			return errors.New("azure base_url is required")
+		}
+
+		if a.Model == "" {
+			a.Model = "gpt-4"
+		}
+	}
+
+	return nil
+}
