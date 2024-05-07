@@ -2,6 +2,7 @@ package aicore
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -131,13 +132,56 @@ func parseImageParts(s config.Settings, imageURLs []string) (parts []llms.Conten
 	return
 }
 
+func parseToolResponse(ctx context.Context, model llms.Model, options []llms.CallOption, content []llms.MessageContent, settings config.Settings) ([]llms.MessageContent, error) {
+	resp, err := model.GenerateContent(ctx, content, options...)
+	if err != nil {
+		return nil, err
+	}
+
+	respChoice := resp.Choices[0]
+	ar := llms.TextParts(llms.ChatMessageTypeAI, respChoice.Content)
+	for _, tc := range respChoice.ToolCalls {
+		ar.Parts = append(ar.Parts, tc)
+	}
+	content = append(content, ar)
+
+	for _, tc := range respChoice.ToolCalls {
+		switch tc.FunctionCall.Name {
+		case "getExchangeRate":
+			var args struct {
+				CurrencyDate string `json:"currency_date"`
+			}
+			if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &args); err != nil {
+				return nil, err
+			}
+			rs, err := getExchangeRate(ctx, args.CurrencyDate)
+			if err != nil {
+				return nil, err
+			}
+			tr := llms.MessageContent{
+				Role: llms.ChatMessageTypeTool,
+				Parts: []llms.ContentPart{
+					llms.ToolCallResponse{
+						Name:    tc.FunctionCall.Name,
+						Content: string(rs),
+					},
+				},
+			}
+			content = append(content, tr)
+		default:
+			slog.Error("[LLMAgent.Query] unknown tool call", "name", tc.FunctionCall.Name)
+		}
+	}
+	return content, nil
+}
+
 func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageURLs []string) (<-chan string, error) {
 	slog.Info("[LLMAgent.Query] query", "user", user, "input", input, "imageURLs", imageURLs)
 
 	output := make(chan string)
 	var err error
 
-	if len(imageURLs) > 0 && !a.settings.HasVision() {
+	if len(imageURLs) > 0 && !a.settings.IsVisionSupported() {
 		close(output)
 		return output, errors.New("vision of current model not enabled")
 	}
@@ -181,7 +225,8 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 
 		ps, err := parseImageParts(a.settings, imageURLs)
 		if err != nil {
-			return nil, err
+			close(output)
+			return output, err
 		}
 		parts = append(parts, ps...)
 
@@ -191,16 +236,28 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 		})
 	}
 
+	// parseTools
+	options := []llms.CallOption{llms.WithTemperature(*a.settings.Temperature), llms.WithMaxTokens(*a.settings.OutputMaxSize)}
+	if a.settings.IsToolSupported() {
+		options = append(options, llms.WithTools(availableTools))
+		content, err = parseToolResponse(ctx, a.model, options, content, a.settings)
+		if err != nil {
+			close(output)
+			return output, err
+		}
+		slog.Debug("[LLMAgent.Query] parsed tools", "content", content[len(content)-1])
+	}
+
+	// streaming
 	go func() {
 		defer close(output)
 		var isStreaming bool
-		var options []llms.CallOption
-		options = append(options, llms.WithTemperature(*a.settings.Temperature), llms.WithMaxTokens(*a.settings.OutputMaxSize))
 		options = append(options, llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
 			output <- string(chunk)
 			isStreaming = true
 			return nil
 		}))
+
 		resp, err := a.model.GenerateContent(ctx, content, options...)
 		if err != nil {
 			output <- err.Error()

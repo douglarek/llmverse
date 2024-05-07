@@ -124,8 +124,12 @@ func (s Settings) IsDeepseekEnabled() bool {
 	return s.Models.Deepseek != nil && s.Models.Deepseek.Enabled
 }
 
-func (s Settings) HasVision() bool {
+func (s Settings) IsVisionSupported() bool {
 	return s.IsOpenAIEnabled() || s.IsGoogleEnabled() || s.IsBedrockEnabled()
+}
+
+func (s Settings) IsToolSupported() bool {
+	return s.IsGoogleEnabled()
 }
 
 func LoadSettings(filePath string) (Settings, error) {
