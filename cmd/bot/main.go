@@ -130,6 +130,7 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 			for {
 				select {
 				case <-tk.C:
+					s.Typing(e.ChannelID)
 					if len(message) > 2000 {
 						continue
 					}
