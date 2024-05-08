@@ -11,12 +11,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/diamondburned/arikawa/v3/api"
-	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/state"
-	"github.com/diamondburned/arikawa/v3/utils/json/option"
-	"github.com/diamondburned/arikawa/v3/utils/sendpart"
 	"github.com/douglarek/llmverse/aicore"
 	"github.com/douglarek/llmverse/config"
 )
@@ -116,13 +112,11 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 			}
 		case <-chan string:
 			var message string
-			var mID discord.MessageID
-			m, err := s.SendMessageReply(e.ChannelID, "✏️ ...", e.ID)
+			messageObj, err := s.SendMessageReply(e.ChannelID, "✏️ ...", e.ID)
 			if err != nil {
 				slog.Error("[main.messageHandler]: cannot send message", "error", err)
 				return
 			}
-			mID = m.ID
 			s.Typing(e.ChannelID)
 
 			tk := time.NewTicker(1 * time.Second)
@@ -131,31 +125,40 @@ func messageHandler(s *state.State, m *aicore.LLMAgent) interface{} {
 				select {
 				case <-tk.C:
 					s.Typing(e.ChannelID)
-					if len(message) > 2000 {
+					umessage := []rune(message)
+					if len(umessage) <= 2000 {
+						if _, err := s.EditMessage(e.ChannelID, messageObj.ID, message); err != nil {
+							slog.Error("[main.messageHandler]: cannot edit message", "error", err)
+							return
+						}
 						continue
 					}
-					if _, err := s.EditMessage(e.ChannelID, mID, message); err != nil {
+
+					if _, err := s.EditMessage(e.ChannelID, messageObj.ID, string(umessage[:2000])); err != nil {
 						slog.Error("[main.messageHandler]: cannot edit message", "error", err)
+						return
+					}
+					message = "⏩ " + string(umessage[2000:])
+					messageObj, err = s.SendMessageReply(e.ChannelID, message, messageObj.ID)
+					if err != nil {
+						slog.Error("[main.messageHandler]: cannot send message", "error", err)
 						return
 					}
 				default:
 					chunk, ok := <-output
 					if !ok {
 						time.Sleep(1 * time.Second) // discord 429 case
-						if len(message) > 2000 {
-							for chunk := range output {
-								message += chunk
-							}
-							if _, err := s.EditMessageComplex(e.ChannelID, mID, api.EditMessageData{
-								Content: option.NewNullableString(message[:2000]),
-								Files:   []sendpart.File{{Name: "message.md", Reader: strings.NewReader(message)}},
-							}); err != nil {
+						umessage := []rune(message)
+						if len(umessage) <= 2000 {
+							if _, err := s.EditMessage(e.ChannelID, messageObj.ID, message); err != nil {
 								slog.Error("[main.messageHandler]: cannot edit message", "error", err)
+								return
 							}
 							return
 						}
-						if _, err := s.EditMessage(e.ChannelID, mID, message); err != nil {
-							slog.Error("[main.messageHandler]: cannot edit message", "error", err)
+						message = string(umessage[2000:])
+						if _, err = s.SendMessageReply(e.ChannelID, message, messageObj.ID); err != nil {
+							slog.Error("[main.messageHandler]: cannot send message", "error", err)
 							return
 						}
 
