@@ -201,12 +201,6 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 
 	// parseTools
 	options := []llms.CallOption{llms.WithTemperature(*a.settings.Temperature), llms.WithMaxTokens(*a.settings.OutputMaxSize)}
-	var isStreaming bool
-	options = append(options, llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
-		isStreaming = true
-		output <- string(chunk)
-		return nil
-	}))
 
 	go func() {
 		defer close(output)
@@ -215,7 +209,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 		if a.settings.IsToolSupported() {
 			options = append(options, llms.WithTools(availableTools))
 			var return_direct bool
-			content, return_direct, err = executeToolCalls(ctx, a.model, options, content)
+			content, return_direct, err = executeToolCalls(ctx, a.model, options, content, output)
 			if err != nil {
 				output <- err.Error()
 				return
@@ -231,6 +225,12 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 		}
 
 		// streaming
+		var isStreaming bool
+		options = append(options, llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
+			isStreaming = true
+			output <- string(chunk)
+			return nil
+		}))
 		resp, err := a.model.GenerateContent(ctx, content, options...)
 		if err != nil {
 			output <- err.Error()

@@ -3,6 +3,7 @@ package aicore
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -60,7 +61,13 @@ func getExchangeRate(ctx context.Context, currencyDate string) ([]byte, error) {
 // executeToolCalls is a helper function that parses the response from a tool call
 // and returns the content to be sent to the user, whether the response should be
 // returned directly to the user, and any error that occurred.
-func executeToolCalls(ctx context.Context, model llms.Model, options []llms.CallOption, content []llms.MessageContent) ([]llms.MessageContent, bool, error) { // content, return_direct, error
+func executeToolCalls(ctx context.Context, model llms.Model, options []llms.CallOption, content []llms.MessageContent, output chan<- string) ([]llms.MessageContent, bool, error) { // content, return_direct, error
+	var isStreaming bool
+	options = append(options, llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
+		isStreaming = true
+		output <- parseToolCallStreamingChunk(chunk)
+		return nil
+	}))
 	resp, err := model.GenerateContent(ctx, content, options...)
 	if err != nil {
 		return nil, false, err
@@ -102,10 +109,44 @@ func executeToolCalls(ctx context.Context, model llms.Model, options []llms.Call
 				},
 			}
 			content = append(content, tr)
+			if isStreaming {
+				output <- "`\n\n"
+			}
 		default:
 			slog.Error("[LLMAgent.Query] unknown tool call", "name", tc.FunctionCall.Name)
 		}
 	}
 
 	return content, false, nil
+}
+
+type toolCallStreamingChunk struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Function struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	} `json:"function"`
+}
+
+func parseToolCallStreamingChunk(chunk []byte) string {
+	slog.Debug("[tool.parseToolCallStreamingChunk]", "chunk", string(chunk))
+
+	var tc []toolCallStreamingChunk
+	if err := json.Unmarshal(chunk, &tc); err != nil {
+		goto R
+	}
+
+	if len(tc) > 0 {
+
+		if tc[0].Function.Name != "" {
+			return fmt.Sprintf("*** Running tool: [%s] with arguments: *** `", tc[0].Function.Name)
+		}
+		if tc[0].Function.Arguments != "" {
+			return tc[0].Function.Arguments
+		}
+	}
+
+R:
+	return string(chunk)
 }
