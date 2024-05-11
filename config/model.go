@@ -263,3 +263,40 @@ func (d *deepseek) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
+
+type qwen struct {
+	Enabled bool   `json:"enabled"`
+	APIKey  string `json:"api_key"`
+	BaseURL string `json:"base_url"` // optional, default: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+	Model   string `json:"model"`    // optional, default: "qwen1.5-110b-chat"
+}
+
+var _ json.Unmarshaler = (*qwen)(nil)
+
+func (q *qwen) UnmarshalJSON(data []byte) error {
+	type Alias qwen
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(q),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if q.Enabled {
+		if q.APIKey == "" {
+			return errors.New("qwen api_key is required")
+		}
+
+		if q.BaseURL == "" {
+			q.BaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+		}
+
+		if q.Model == "" {
+			q.Model = "qwen1.5-110b-chat"
+		}
+	}
+
+	return nil
+}

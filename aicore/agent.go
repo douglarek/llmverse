@@ -78,6 +78,12 @@ func buildModelFromConfig(settings config.Settings) llms.Model {
 			openai.WithBaseURL(settings.Models.Deepseek.BaseURL),
 			openai.WithModel(settings.Models.Deepseek.Model),
 		)
+	} else if settings.IsQwenEnabled() {
+		model, err = openai.New(
+			openai.WithToken(settings.Models.Qwen.APIKey),
+			openai.WithModel(settings.Models.Qwen.Model),
+			openai.WithBaseURL(settings.Models.Qwen.BaseURL),
+		)
 	} else {
 		panic("no model available")
 	}

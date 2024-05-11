@@ -21,6 +21,7 @@ type Settings struct {
 		Bedrock  *bedrock  `json:"aws_bedrock"`
 		Azure    *azure    `json:"azure"`
 		Deepseek *deepseek `json:"deepseek"`
+		Qwen     *qwen     `json:"qwen"`
 	} `json:"models"`
 }
 
@@ -83,6 +84,9 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 	}
 	if s.IsDeepseekEnabled() {
 		enabledModels++
+	}
+	if s.IsQwenEnabled() {
+		enabledModels++
 	} // added if statement when new model is added
 
 	if enabledModels == 0 {
@@ -122,6 +126,10 @@ func (s Settings) IsAzureEnabled() bool {
 
 func (s Settings) IsDeepseekEnabled() bool {
 	return s.Models.Deepseek != nil && s.Models.Deepseek.Enabled
+}
+
+func (s Settings) IsQwenEnabled() bool {
+	return s.Models.Qwen != nil && s.Models.Qwen.Enabled
 }
 
 func (s Settings) IsVisionSupported() bool {
