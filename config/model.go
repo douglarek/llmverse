@@ -300,3 +300,40 @@ func (q *qwen) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
+
+type chatglm struct {
+	Enabled bool   `json:"enabled"`
+	APIKey  string `json:"api_key"`
+	BaseURL string `json:"base_url"` // optional, default: "https://open.bigmodel.cn/api/paas/v4"
+	Model   string `json:"model"`    // optional, default: "glm-3-turbo"
+}
+
+var _ json.Unmarshaler = (*chatglm)(nil)
+
+func (c *chatglm) UnmarshalJSON(data []byte) error {
+	type Alias chatglm
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(c),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if c.Enabled {
+		if c.APIKey == "" {
+			return errors.New("chatglm api_key is required")
+		}
+
+		if c.BaseURL == "" {
+			c.BaseURL = "https://open.bigmodel.cn/api/paas/v4"
+		}
+
+		if c.Model == "" {
+			c.Model = "glm-3-turbo"
+		}
+	}
+
+	return nil
+}

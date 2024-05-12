@@ -22,6 +22,7 @@ type Settings struct {
 		Azure    *azure    `json:"azure"`
 		Deepseek *deepseek `json:"deepseek"`
 		Qwen     *qwen     `json:"qwen"`
+		ChatGLM  *chatglm  `json:"chatglm"`
 	} `json:"models"`
 }
 
@@ -87,6 +88,9 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 	}
 	if s.IsQwenEnabled() {
 		enabledModels++
+	}
+	if s.IsChatGLMEnabled() {
+		enabledModels++
 	} // added if statement when new model is added
 
 	if enabledModels == 0 {
@@ -130,6 +134,10 @@ func (s Settings) IsDeepseekEnabled() bool {
 
 func (s Settings) IsQwenEnabled() bool {
 	return s.Models.Qwen != nil && s.Models.Qwen.Enabled
+}
+
+func (s Settings) IsChatGLMEnabled() bool {
+	return s.Models.ChatGLM != nil && s.Models.ChatGLM.Enabled
 }
 
 func (s Settings) IsVisionSupported() bool {

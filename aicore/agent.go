@@ -84,6 +84,12 @@ func buildModelFromConfig(settings config.Settings) llms.Model {
 			openai.WithModel(settings.Models.Qwen.Model),
 			openai.WithBaseURL(settings.Models.Qwen.BaseURL),
 		)
+	} else if settings.IsChatGLMEnabled() {
+		model, err = openai.New(
+			openai.WithToken(settings.Models.ChatGLM.APIKey),
+			openai.WithModel(settings.Models.ChatGLM.Model),
+			openai.WithBaseURL(settings.Models.ChatGLM.BaseURL),
+		)
 	} else {
 		panic("no model available")
 	}
