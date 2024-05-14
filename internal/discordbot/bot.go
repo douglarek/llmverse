@@ -29,26 +29,6 @@ var commands = []*discordgo.ApplicationCommand{
 
 var registeredCommands = make([]*discordgo.ApplicationCommand, len(commands))
 
-var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"llmverse": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		options := i.ApplicationCommandData().Options
-		var content string
-
-		switch options[0].Name {
-		case "models":
-			content = "Available models: gemini"
-		default:
-		}
-
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: content,
-			},
-		})
-	},
-}
-
 type Bot struct {
 	session *discordgo.Session
 }
@@ -74,8 +54,22 @@ func New(settings config.Settings) (*Bot, error) {
 		slog.Info("[main]: bot is ready", "user", r.User.Username+"#"+r.User.Discriminator)
 	})
 	session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
-			h(s, i)
+		if i.ApplicationCommandData().Name == "llmverse" {
+			options := i.ApplicationCommandData().Options
+			var content string
+
+			switch options[0].Name {
+			case "models":
+				content = "Available models: " + settings.GetAvailableModels()
+			default:
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: content,
+				},
+			})
 		}
 	})
 	session.AddHandler(messageCreate(aicore.NewLLMAgent(settings)))
@@ -125,6 +119,12 @@ func messageCreate(m *aicore.LLMAgent) func(s *discordgo.Session, e *discordgo.M
 			return
 		}
 
+		if config.ParseModelName(rawConent) == "" {
+			if e.ReferencedMessage != nil {
+				rawConent = config.ParseModelName(e.ReferencedMessage.Content) + ": " + rawConent
+			}
+		}
+
 		var imageURLs []string
 		var resp any
 		var err error
@@ -144,7 +144,7 @@ func messageCreate(m *aicore.LLMAgent) func(s *discordgo.Session, e *discordgo.M
 		}
 
 		if err != nil {
-			s.ChannelMessageSendReply(e.ChannelID, "🤖 An error occurred: "+err.Error(), e.Reference())
+			s.ChannelMessageSendReply(e.ChannelID, "🤖 "+err.Error(), e.Reference())
 			return
 		}
 

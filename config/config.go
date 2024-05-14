@@ -4,25 +4,43 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strings"
+)
+
+type model = string
+
+var (
+	OpenAI   model = "openai"
+	Google   model = "google"
+	Mistral  model = "mistral"
+	Groq     model = "groq"
+	Bedrock  model = "bedrock"
+	Azure    model = "azure"
+	Deepseek model = "deepseek"
+	Qwen     model = "qwen"
+	ChatGLM  model = "chatglm"
 )
 
 type Settings struct {
 	DiscordBotToken string   `json:"discord_bot_token"`
-	EnableDebug     bool     `json:"enable_debug"`     // optional, default: false
-	HistoryMaxSize  *int     `json:"history_max_size"` // optional, default: 2048
-	OutputMaxSize   *int     `json:"output_max_size"`  // optional, default: 4096. note: context_windows >= history_max_size + output_max_size + discord_message_limit(about 2048 tokens)
-	SystemPrompt    string   `json:"system_prompt"`    // optional, default: "You are a helpful AI assistant."
-	Temperature     *float64 `json:"temperature"`      // optional, default: 0.7
-	Models          struct {
-		OpenAI   *openai   `json:"openai"`
-		Google   *google   `json:"google"`
-		Mistral  *mistral  `json:"mistral"`
-		Groq     *groq     `json:"groq"`
-		Bedrock  *bedrock  `json:"aws_bedrock"`
-		Azure    *azure    `json:"azure"`
-		Deepseek *deepseek `json:"deepseek"`
-		Qwen     *qwen     `json:"qwen"`
-		ChatGLM  *chatglm  `json:"chatglm"`
+	EnableDebug     bool     `json:"enable_debug"`
+	HistoryMaxSize  *int     `json:"history_max_size"`
+	OutputMaxSize   *int     `json:"output_max_size"`
+	SystemPrompt    string   `json:"system_prompt"`
+	Temperature     *float64 `json:"temperature"`
+	Models          []struct {
+		Name             string `json:"name,omitempty"`
+		APIKey           string `json:"api_key,omitempty"`
+		APIVersion       string `json:"api_version,omitempty"`
+		Enabled          bool   `json:"enabled"`
+		Model            string `json:"model,omitempty"`
+		BaseURL          string `json:"base_url,omitempty"`
+		AccessKeyID      string `json:"access_key_id,omitempty"`
+		ModelID          string `json:"model_id,omitempty"`
+		RegionName       string `json:"region_name,omitempty"`
+		SecretAccessKey  string `json:"secret_access_key,omitempty"`
+		HasVisionSupport bool   `json:"has_vision_support,omitempty"`
+		HasToolSupport   bool   `json:"has_tool_support,omitempty"`
 	} `json:"models"`
 }
 
@@ -62,90 +80,158 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 		*s.Temperature = 0.7
 	}
 
-	// at most one model can be enabled and at least one model must be enabled
-	var enabledModels int
-
-	if s.IsOpenAIEnabled() {
-		enabledModels++
-	}
-	if s.IsGoogleEnabled() {
-		enabledModels++
-	}
-	if s.IsMistralEnabled() {
-		enabledModels++
-	}
-	if s.IsGroqEnabled() {
-		enabledModels++
-	}
-	if s.IsBedrockEnabled() {
-		enabledModels++
-	}
-	if s.IsAzureEnabled() {
-		enabledModels++
-	}
-	if s.IsDeepseekEnabled() {
-		enabledModels++
-	}
-	if s.IsQwenEnabled() {
-		enabledModels++
-	}
-	if s.IsChatGLMEnabled() {
-		enabledModels++
-	} // added if statement when new model is added
-
-	if enabledModels == 0 {
-		return errors.New("at least one model must be enabled")
-	}
-
-	if enabledModels > 1 {
-		return errors.New("only one model can be enabled")
+	for i, v := range s.Models {
+		if v.Enabled {
+			switch v.Name {
+			case OpenAI:
+				if v.APIKey == "" {
+					return errors.New("openai api_key is required")
+				}
+				if v.BaseURL == "" {
+					s.Models[i].BaseURL = "https://api.openai.com/v1"
+				}
+				if v.Model == "" {
+					s.Models[i].Model = "gpt-4"
+				}
+			case Google:
+				if v.APIKey == "" {
+					return errors.New("google api_key is required")
+				}
+				if v.Model == "" {
+					s.Models[i].Model = "gemini-1.5-pro-latest"
+				}
+			case Mistral:
+				if v.APIKey == "" {
+					return errors.New("mistral api_key is required")
+				}
+				if v.Model == "" {
+					s.Models[i].Model = "mistral-large-latest"
+				}
+			case Groq:
+				if v.APIKey == "" {
+					return errors.New("groq api_key is required")
+				}
+				if v.BaseURL == "" {
+					s.Models[i].BaseURL = "https://api.groq.com/openai/v1"
+				}
+				if v.Model == "" {
+					s.Models[i].Model = "llama3-70b-8192"
+				}
+			case Bedrock:
+				if v.AccessKeyID == "" {
+					return errors.New("bedrock access_key_id is required")
+				}
+				if v.SecretAccessKey == "" {
+					return errors.New("bedrock secret_access_key is required")
+				}
+				if v.ModelID == "" {
+					s.Models[i].ModelID = "anthropic.claude-3-sonnet-20240229-v1:0"
+				}
+				if v.RegionName == "" {
+					s.Models[i].RegionName = "us-west-2"
+				}
+			case Azure:
+				if v.APIKey == "" {
+					return errors.New("azure api_key is required")
+				}
+				if v.APIVersion == "" {
+					s.Models[i].APIVersion = "2024-02-01"
+				}
+				if v.BaseURL == "" {
+					return errors.New("azure base_url is required")
+				}
+				if v.Model == "" {
+					s.Models[i].Model = "gpt-4"
+				}
+			case Deepseek:
+				if v.APIKey == "" {
+					return errors.New("deepseek api_key is required")
+				}
+				if v.BaseURL == "" {
+					s.Models[i].BaseURL = "https://api.deepseek.com/v1"
+				}
+				if v.Model == "" {
+					s.Models[i].Model = "deepseek-chat"
+				}
+			case Qwen:
+				if v.APIKey == "" {
+					return errors.New("qwen api_key is required")
+				}
+				if v.BaseURL == "" {
+					s.Models[i].BaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+				}
+				if v.Model == "" {
+					s.Models[i].Model = "qwen1.5-110b-chat"
+				}
+			case ChatGLM:
+				if v.APIKey == "" {
+					return errors.New("chatglm api_key is required")
+				}
+				if v.BaseURL == "" {
+					s.Models[i].BaseURL = "https://open.bigmodel.cn/api/paas/v4"
+				}
+				if v.Model == "" {
+					s.Models[i].Model = "glm-3-turbo"
+				}
+			default:
+				return errors.New("unknown model name " + v.Name)
+			}
+		}
 	}
 
 	return nil
 }
 
-func (s Settings) IsOpenAIEnabled() bool {
-	return s.Models.OpenAI != nil && s.Models.OpenAI.Enabled
+func (s Settings) GetModelName(input string) string {
+	index := strings.Index(input, ":")
+	if index == -1 {
+		return ""
+	}
+
+	name := input[:index]
+	for _, v := range s.Models {
+		if v.Name == name {
+			return v.Name
+		}
+	}
+
+	return ""
 }
 
-func (s Settings) IsGoogleEnabled() bool {
-	return s.Models.Google != nil && s.Models.Google.Enabled
+func (s Settings) GetVisionSupport(name string) bool {
+	for _, v := range s.Models {
+		if v.Name == name {
+			return v.HasVisionSupport
+		}
+	}
+	return false
 }
 
-func (s Settings) IsMistralEnabled() bool {
-	return s.Models.Mistral != nil && s.Models.Mistral.Enabled
+func (s Settings) GetAvailableModels() string {
+	var models []string
+	for _, v := range s.Models {
+		if v.Enabled {
+			models = append(models, "`"+v.Name+"`")
+		}
+	}
+	return strings.Join(models, ", ")
 }
 
-func (s Settings) IsGroqEnabled() bool {
-	return s.Models.Groq != nil && s.Models.Groq.Enabled
+func (s Settings) GetToolSupport(name string) bool {
+	for _, v := range s.Models {
+		if v.Name == name {
+			return v.HasToolSupport
+		}
+	}
+	return false
 }
 
-func (s Settings) IsBedrockEnabled() bool {
-	return s.Models.Bedrock != nil && s.Models.Bedrock.Enabled
-}
-
-func (s Settings) IsAzureEnabled() bool {
-	return s.Models.Azure != nil && s.Models.Azure.Enabled
-}
-
-func (s Settings) IsDeepseekEnabled() bool {
-	return s.Models.Deepseek != nil && s.Models.Deepseek.Enabled
-}
-
-func (s Settings) IsQwenEnabled() bool {
-	return s.Models.Qwen != nil && s.Models.Qwen.Enabled
-}
-
-func (s Settings) IsChatGLMEnabled() bool {
-	return s.Models.ChatGLM != nil && s.Models.ChatGLM.Enabled
-}
-
-func (s Settings) IsVisionSupported() bool {
-	return s.IsOpenAIEnabled() || s.IsGoogleEnabled() || s.IsBedrockEnabled()
-}
-
-func (s Settings) IsToolSupported() bool {
-	return s.IsOpenAIEnabled() || s.IsGoogleEnabled()
+func ParseModelName(input string) string {
+	index := strings.Index(input, ":")
+	if index == -1 {
+		return ""
+	}
+	return input[:index]
 }
 
 func LoadSettings(filePath string) (Settings, error) {
