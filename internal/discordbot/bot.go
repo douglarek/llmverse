@@ -119,9 +119,13 @@ func messageCreate(m *aicore.LLMAgent) func(s *discordgo.Session, e *discordgo.M
 			return
 		}
 
-		if config.ParseModelName(rawConent) == "" {
+		var modelName string
+		if modelName = config.ParseModelName(rawConent); modelName == "" {
 			if e.ReferencedMessage != nil {
-				rawConent = config.ParseModelName(e.ReferencedMessage.Content) + ": " + rawConent
+				modelName = config.ParseModelName(e.ReferencedMessage.Content)
+				if modelName != "" {
+					rawConent = modelName + ": " + rawConent
+				}
 			}
 		}
 
@@ -169,7 +173,7 @@ func messageCreate(m *aicore.LLMAgent) func(s *discordgo.Session, e *discordgo.M
 					}
 
 					s.ChannelMessageEdit(e.ChannelID, messageObj.ID, string(umessage[:2000]))
-					message = "⏩ " + string(umessage[2000:])
+					message = modelName + ": ⏩ " + string(umessage[2000:])
 					messageObj, _ = s.ChannelMessageSendReply(e.ChannelID, message, e.Reference())
 				default:
 					chunk, ok := <-output
