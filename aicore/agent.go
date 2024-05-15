@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -156,6 +157,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 	if model == nil {
 		return nil, fmt.Errorf("available models: %s. question should start with `[model]:`", a.settings.GetAvailableModels())
 	}
+	input = strings.TrimPrefix(input, modelName+":")
 
 	output := make(chan string)
 	var err error
