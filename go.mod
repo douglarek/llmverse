@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.26.1
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.8.0
 	github.com/bwmarrin/discordgo v0.28.1
-	github.com/tmc/langchaingo v0.1.10-pre.0
+	github.com/tmc/langchaingo v0.1.11-0.20240514165719-4c509c08e8c8
 )
 
 require (
