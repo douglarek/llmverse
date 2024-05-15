@@ -61,6 +61,13 @@
             "model": "deepseek-chat"
         },
         {
+            "name": "qwen",
+            "api_key": "",
+            "enabled": false,
+            "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "model": "qwen1.5-110b-chat"
+        },
+        {
             "name": "chatglm",
             "api_key": "",
             "enabled": false,

@@ -81,6 +81,12 @@ func buildModelsFromConfig(settings config.Settings) map[string]llms.Model {
 				openai.WithBaseURL(v.BaseURL),
 				openai.WithModel(v.Model),
 			)
+		case config.Qwen:
+			model, err = openai.New(
+				openai.WithToken(v.APIKey),
+				openai.WithModel(v.Model),
+				openai.WithBaseURL(v.BaseURL),
+			)
 		case config.ChatGLM:
 			model, err = openai.New(
 				openai.WithToken(v.APIKey),

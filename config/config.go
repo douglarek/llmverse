@@ -17,6 +17,7 @@ var (
 	Bedrock  model = "bedrock"
 	Azure    model = "azure"
 	Deepseek model = "deepseek"
+	Qwen     model = "qwen"
 	ChatGLM  model = "chatglm"
 )
 
@@ -151,6 +152,16 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 				}
 				if v.Model == "" {
 					s.Models[i].Model = "deepseek-chat"
+				}
+			case Qwen:
+				if v.APIKey == "" {
+					return errors.New("qwen api_key is required")
+				}
+				if v.BaseURL == "" {
+					s.Models[i].BaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+				}
+				if v.Model == "" {
+					s.Models[i].Model = "qwen1.5-110b-chat"
 				}
 			case ChatGLM:
 				if v.APIKey == "" {
