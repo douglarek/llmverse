@@ -240,6 +240,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 				return
 			}
 			if return_direct { // return directly, since stream response has been sent to output
+				slog.Debug("[LLMAgent.Query] return_direct", "content", content[len(content)-1])
 				// save chat history
 				if err = a.saveHistory(ctx, model, user+"_"+modelName, input, content[len(content)-1].Parts[0].(llms.TextContent).Text); err != nil {
 					slog.Error("[LLMAgent.Query] failed to save history", "error", err)

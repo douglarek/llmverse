@@ -72,7 +72,8 @@
             "api_key": "",
             "enabled": false,
             "base_url": "https://open.bigmodel.cn/api/paas/v4",
-            "model": "glm-3-turbo"
+            "model": "glm-3-turbo",
+            "has_tool_support": true
         }
     ]
 }

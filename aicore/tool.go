@@ -140,7 +140,11 @@ func parseToolCallStreamingChunk(chunk []byte) string {
 	if len(tc) > 0 {
 
 		if tc[0].Function.Name != "" {
-			return fmt.Sprintf("*** Running tool: [%s] with arguments: *** `", tc[0].Function.Name)
+			res := fmt.Sprintf("*** Running tool: [%s] with arguments: *** `", tc[0].Function.Name)
+			if tc[0].Function.Arguments != "" {
+				res += tc[0].Function.Arguments
+			}
+			return res
 		}
 		if tc[0].Function.Arguments != "" {
 			return tc[0].Function.Arguments
