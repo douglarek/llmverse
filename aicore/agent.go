@@ -183,7 +183,8 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 		})
 	}
 
-	chatHistory := a.loadHistory(ctx, model, user+"_"+modelName).ChatHistory
+	historyKey := user + "_" + modelName
+	chatHistory := a.loadHistory(ctx, model, historyKey).ChatHistory
 	{ // chat history
 		cm, _ := chatHistory.Messages(ctx)
 		for _, m := range cm {
@@ -222,6 +223,8 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 		})
 	}
 
+	slog.Debug("[LLMAgent.Query] content", "content", content)
+
 	// parseTools
 	options := []llms.CallOption{llms.WithTemperature(*a.settings.Temperature), llms.WithMaxTokens(*a.settings.OutputMaxSize)}
 
@@ -242,7 +245,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 			if return_direct { // return directly, since stream response has been sent to output
 				slog.Debug("[LLMAgent.Query] return_direct", "content", content[len(content)-1])
 				// save chat history
-				if err = a.saveHistory(ctx, model, user+"_"+modelName, input, content[len(content)-1].Parts[0].(llms.TextContent).Text); err != nil {
+				if err = a.saveHistory(ctx, model, historyKey, input, content[len(content)-1].Parts[0].(llms.TextContent).Text); err != nil {
 					slog.Error("[LLMAgent.Query] failed to save history", "error", err)
 				}
 				return
@@ -273,7 +276,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 		}
 
 		// save chat history
-		if err = a.saveHistory(ctx, model, user, input, resp.Choices[0].Content); err != nil {
+		if err = a.saveHistory(ctx, model, historyKey, input, resp.Choices[0].Content); err != nil {
 			slog.Error("[LLMAgent.Query] failed to save history", "error", err)
 		}
 	}()

@@ -31,7 +31,7 @@ require (
 	github.com/aws/smithy-go v1.20.2 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/gage-technologies/mistral-go v1.0.0 // indirect
+	github.com/gage-technologies/mistral-go v1.0.1 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -70,5 +70,3 @@ require (
 	google.golang.org/grpc v1.63.2 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 )
-
-replace github.com/gage-technologies/mistral-go v1.0.0 => github.com/gdumoulin/mistral-go v1.0.1-0.20240418082154-90d44f7549a7

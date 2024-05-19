@@ -83,8 +83,8 @@ github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1m
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
-github.com/gdumoulin/mistral-go v1.0.1-0.20240418082154-90d44f7549a7 h1:zN9P/9zXge12Bpw8dCln/uXfdQBNEfes+zOGqPNRJE0=
-github.com/gdumoulin/mistral-go v1.0.1-0.20240418082154-90d44f7549a7/go.mod h1:tF++Xt7U975GcLlzhrjSQb8l/x+PrriO9QEdsgm9l28=
+github.com/gage-technologies/mistral-go v1.0.1 h1:JKoDFDpsAG3YmUKmSP04ADaP1LZYsCAnEL15WM4ACwc=
+github.com/gage-technologies/mistral-go v1.0.1/go.mod h1:tF++Xt7U975GcLlzhrjSQb8l/x+PrriO9QEdsgm9l28=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
 github.com/go-logr/logr v1.4.1 h1:pKouT5E8xu9zeFC39JXRDukb6JFQPXM5p5I91188VAQ=
 github.com/go-logr/logr v1.4.1/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
@@ -187,8 +187,6 @@ github.com/tklauser/go-sysconf v0.3.12 h1:0QaGUFOdQaIVdPgfITYzaTegZvdCjmYO52cSFA
 github.com/tklauser/go-sysconf v0.3.12/go.mod h1:Ho14jnntGE1fpdOqQEEaiKRpvIavV0hSfmBq8nJbHYI=
 github.com/tklauser/numcpus v0.6.1 h1:ng9scYS7az0Bk4OZLvrNXNSAO2Pxr1XXRAPyjhIx+Fk=
 github.com/tklauser/numcpus v0.6.1/go.mod h1:1XfjsgE2zo8GVw7POkMbHENHzVg3GzmoZ9fESEdAacY=
-github.com/tmc/langchaingo v0.1.10-pre.0 h1:PahwInZ+Zh4LHkF2sf75+u+tWS3lgfW4N2zHxvVKc9c=
-github.com/tmc/langchaingo v0.1.10-pre.0/go.mod h1:lPKUIu8ZGI7RAksRFtKbgtS2v3LL0j7LcccHPCvgNfY=
 github.com/tmc/langchaingo v0.1.11-0.20240514165719-4c509c08e8c8 h1:QKVGkDeC9XnTXoz5iICoF5T88pa3cZKqbcFqSmkvt/I=
 github.com/tmc/langchaingo v0.1.11-0.20240514165719-4c509c08e8c8/go.mod h1:QZupRrRBW3fhNUlvll1U4YUHatKZd5h7C0UiHBEWJYc=
 github.com/xdg-go/pbkdf2 v1.0.0 h1:Su7DPu48wXMwC3bs7MCNG+z4FhcyEuz5dlvchbq0B0c=
