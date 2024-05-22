@@ -10,15 +10,16 @@ import (
 type model = string
 
 var (
-	OpenAI   model = "openai"
-	Google   model = "google"
-	Mistral  model = "mistral"
-	Groq     model = "groq"
-	Bedrock  model = "bedrock"
-	Azure    model = "azure"
-	Deepseek model = "deepseek"
-	Qwen     model = "qwen"
-	ChatGLM  model = "chatglm"
+	OpenAI      model = "openai"
+	Google      model = "google"
+	Mistral     model = "mistral"
+	Groq        model = "groq"
+	Bedrock     model = "bedrock"
+	Azure       model = "azure"
+	Deepseek    model = "deepseek"
+	Qwen        model = "qwen"
+	ChatGLM     model = "chatglm"
+	Lingyiwanwu model = "lingyiwanwu"
 )
 
 type Settings struct {
@@ -172,6 +173,16 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 				}
 				if v.Model == "" {
 					s.Models[i].Model = "glm-3-turbo"
+				}
+			case Lingyiwanwu:
+				if v.APIKey == "" {
+					return errors.New("lingyiwanwu api_key is required")
+				}
+				if v.BaseURL == "" {
+					s.Models[i].BaseURL = "https://api.lingyiwanwu.com/v1"
+				}
+				if v.Model == "" {
+					s.Models[i].Model = "yi-large"
 				}
 			default:
 				return errors.New("unknown model name " + v.Name)

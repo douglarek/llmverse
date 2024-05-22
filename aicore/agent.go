@@ -36,7 +36,7 @@ func buildModelsFromConfig(settings config.Settings) map[string]llms.Model {
 		}
 
 		switch v.Name {
-		case config.OpenAI:
+		case config.OpenAI, config.Groq, config.Deepseek, config.Qwen, config.ChatGLM, config.Lingyiwanwu:
 			model, err = openai.New(
 				openai.WithToken(v.APIKey),
 				openai.WithModel(v.Model),
@@ -74,24 +74,6 @@ func buildModelsFromConfig(settings config.Settings) map[string]llms.Model {
 				openai.WithBaseURL(v.BaseURL),
 				openai.WithAPIVersion(v.APIVersion),
 				openai.WithAPIType(openai.APITypeAzure),
-			)
-		case config.Deepseek:
-			model, err = openai.New(
-				openai.WithToken(v.APIKey),
-				openai.WithBaseURL(v.BaseURL),
-				openai.WithModel(v.Model),
-			)
-		case config.Qwen:
-			model, err = openai.New(
-				openai.WithToken(v.APIKey),
-				openai.WithModel(v.Model),
-				openai.WithBaseURL(v.BaseURL),
-			)
-		case config.ChatGLM:
-			model, err = openai.New(
-				openai.WithToken(v.APIKey),
-				openai.WithModel(v.Model),
-				openai.WithBaseURL(v.BaseURL),
 			)
 		}
 
