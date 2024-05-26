@@ -91,7 +91,7 @@ func New(settings config.Settings) (*Bot, error) {
 	return &Bot{session: session}, nil
 }
 
-func messageCreate(m *aicore.LLMAgent) func(s *discordgo.Session, e *discordgo.MessageCreate) {
+func messageCreate(agent *aicore.LLMAgent) func(s *discordgo.Session, e *discordgo.MessageCreate) {
 	return func(s *discordgo.Session, e *discordgo.MessageCreate) {
 		if e.Author.ID == s.State.User.ID || e.MentionEveryone { // ignore this bot and disable @everyone
 			return
@@ -115,6 +115,7 @@ func messageCreate(m *aicore.LLMAgent) func(s *discordgo.Session, e *discordgo.M
 		rawConent := strings.TrimLeftFunc(regexp.MustCompile("<[^>]+>").ReplaceAllString(e.Content, ""), unicode.IsSpace)
 
 		if rawConent == "$clear" {
+			agent.ClearHistory(context.Background(), e.Author.Username)
 			s.ChannelMessageSendReply(e.ChannelID, "🤖 history cleared.", e.Reference())
 			return
 		}
@@ -141,10 +142,10 @@ func messageCreate(m *aicore.LLMAgent) func(s *discordgo.Session, e *discordgo.M
 			if len(imageURLs) == 0 {
 				resp = "🤖 no image found. only png, jpg, jpeg, gif or webp supported"
 			} else {
-				resp, err = m.Query(context.Background(), e.Author.Username, rawConent, imageURLs)
+				resp, err = agent.Query(context.Background(), e.Author.Username, rawConent, imageURLs)
 			}
 		} else {
-			resp, err = m.Query(context.Background(), e.Author.Username, rawConent, nil)
+			resp, err = agent.Query(context.Background(), e.Author.Username, rawConent, nil)
 		}
 
 		if err != nil {

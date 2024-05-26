@@ -8,11 +8,41 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/douglarek/llmverse/config"
+	"github.com/sashabaranov/go-openai"
 	"github.com/tmc/langchaingo/llms"
 )
 
-// availableTools is a list of tools that the agent can use to help answer questions.
-var availableTools = []llms.Tool{
+func availableTools(model config.LLMModel) []llms.Tool {
+	switch model {
+	case config.OpenAI:
+		imageTool := []llms.Tool{
+			{
+				Type: "function",
+				Function: &llms.FunctionDefinition{
+					Name:        "generateImage",
+					Description: "Generate a detailed prompt to generate an image based on the following description: {image_desc}",
+					Parameters: map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"image_desc": map[string]any{
+								"type":        "string",
+								"description": "A description of the image to generate",
+							},
+						},
+						"required": []string{"image_desc"},
+					},
+				},
+			},
+		}
+		defaultTools = append(defaultTools, imageTool...)
+	default:
+	}
+	return defaultTools
+}
+
+// defaultTools is a list of tools that the agent can use to help answer questions.
+var defaultTools = []llms.Tool{
 	{
 		Type: "function",
 		Function: &llms.FunctionDefinition{
@@ -58,10 +88,33 @@ func getExchangeRate(ctx context.Context, currencyDate string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
+// generateImage is a helper function that generates an image based on the imageDesc
+func generateImage(ctx context.Context, imageDesc string, setting config.ModelSetting) (string, error) {
+	conf := openai.DefaultConfig(setting.APIKey)
+	conf.BaseURL = setting.BaseURL
+	c := openai.NewClientWithConfig(conf)
+	resp, err := c.CreateImage(ctx, openai.ImageRequest{
+		Prompt:         imageDesc,
+		Model:          openai.CreateImageModelDallE3,
+		N:              1,
+		Quality:        openai.CreateImageQualityStandard,
+		Size:           openai.CreateImageSize1024x1024,
+		Style:          openai.CreateImageStyleNatural,
+		ResponseFormat: openai.CreateImageResponseFormatURL,
+	})
+
+	if err != nil {
+		return "", err
+
+	}
+
+	return resp.Data[0].URL, nil
+}
+
 // executeToolCalls is a helper function that parses the response from a tool call
 // and returns the content to be sent to the user, whether the response should be
 // returned directly to the user, and any error that occurred.
-func executeToolCalls(ctx context.Context, model llms.Model, options []llms.CallOption, content []llms.MessageContent, output chan<- string) ([]llms.MessageContent, bool, error) { // content, return_direct, error
+func executeToolCalls(ctx context.Context, model llms.Model, modelSetting config.ModelSetting, options []llms.CallOption, content []llms.MessageContent, output chan<- string) ([]llms.MessageContent, bool, error) { // content, return_direct, error
 	var isStreaming bool
 	options = append(options, llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
 		isStreaming = true
@@ -80,12 +133,9 @@ func executeToolCalls(ctx context.Context, model llms.Model, options []llms.Call
 		return content, true, nil
 	}
 
+	var toolMessages []llms.MessageContent
 	for _, tc := range respChoice.ToolCalls {
-		ar.Parts = append(ar.Parts, tc)
-	}
-	content = append(content, ar)
-
-	for _, tc := range respChoice.ToolCalls {
+		var tr llms.MessageContent
 		switch tc.FunctionCall.Name {
 		case "getExchangeRate":
 			var args struct {
@@ -98,7 +148,7 @@ func executeToolCalls(ctx context.Context, model llms.Model, options []llms.Call
 			if err != nil {
 				return nil, false, err
 			}
-			tr := llms.MessageContent{
+			tr = llms.MessageContent{
 				Role: llms.ChatMessageTypeTool,
 				Parts: []llms.ContentPart{
 					llms.ToolCallResponse{
@@ -108,14 +158,41 @@ func executeToolCalls(ctx context.Context, model llms.Model, options []llms.Call
 					},
 				},
 			}
-			content = append(content, tr)
-			if isStreaming {
-				output <- "`\n\n"
+		case "generateImage":
+			var args struct {
+				ImageDesc string `json:"image_desc"`
+			}
+			if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &args); err != nil {
+				return nil, false, err
+			}
+			rs, err := generateImage(ctx, args.ImageDesc, modelSetting)
+			if err != nil {
+				return nil, false, err
+			}
+			tr = llms.MessageContent{
+				Role: llms.ChatMessageTypeTool,
+				Parts: []llms.ContentPart{
+					llms.ToolCallResponse{
+						ToolCallID: tc.ID,
+						Name:       tc.FunctionCall.Name,
+						Content:    rs,
+					},
+				},
 			}
 		default:
-			slog.Error("[LLMAgent.Query] unknown tool call", "name", tc.FunctionCall.Name)
+			slog.Error("[LLMAgent.Query] hint unknown tool call", "name", tc.FunctionCall.Name)
+			continue
+		}
+
+		ar.Parts = append(ar.Parts, tc)
+		toolMessages = append(toolMessages, tr)
+		if isStreaming {
+			output <- "`\n\n"
 		}
 	}
+
+	content = append(content, ar)
+	content = append(content, toolMessages...)
 
 	return content, false, nil
 }

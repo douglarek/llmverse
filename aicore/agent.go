@@ -99,7 +99,13 @@ func (a *LLMAgent) loadHistory(_ context.Context, model llms.Model, user string)
 }
 
 func (a *LLMAgent) ClearHistory(_ context.Context, user string) {
-	a.history.Delete(user)
+	a.history.Range(func(k, v interface{}) bool {
+		slog.Debug("clearing history", "key", k, "user", user)
+		if strings.HasPrefix(k.(string), user) {
+			a.history.Delete(k)
+		}
+		return true
+	})
 	slog.Debug("history cleared", "user", user)
 }
 
@@ -140,17 +146,17 @@ func parseImageParts(modelName string, imageURLs []string) (parts []llms.Content
 func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageURLs []string) (<-chan string, error) {
 	slog.Info("[LLMAgent.Query] query", "user", user, "input", input, "imageURLs", imageURLs)
 
-	modelName := a.settings.GetModelName(input)
-	model := a.models[modelName]
+	llmModel := a.settings.GetLLMModel(input)
+	model := a.models[llmModel]
 	if model == nil {
 		return nil, fmt.Errorf("available models: %s. question should start with `[model]:`", a.settings.GetAvailableModels())
 	}
-	input = strings.TrimPrefix(input, modelName+":")
+	input = strings.TrimPrefix(input, llmModel+":")
 
 	output := make(chan string)
 	var err error
 
-	if len(imageURLs) > 0 && !a.settings.GetVisionSupport(modelName) {
+	if len(imageURLs) > 0 && !a.settings.GetVisionSupport(llmModel) {
 		close(output)
 		return output, errors.New("vision of current model not enabled")
 	}
@@ -165,7 +171,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 		})
 	}
 
-	historyKey := user + "_" + modelName
+	historyKey := user + "_" + llmModel
 	chatHistory := a.loadHistory(ctx, model, historyKey).ChatHistory
 	{ // chat history
 		cm, _ := chatHistory.Messages(ctx)
@@ -192,7 +198,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 
 		parts = append(parts, llms.TextPart(input))
 
-		ps, err := parseImageParts(modelName, imageURLs)
+		ps, err := parseImageParts(llmModel, imageURLs)
 		if err != nil {
 			close(output)
 			return output, err
@@ -213,13 +219,13 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 	go func() {
 		defer close(output)
 
-		output <- modelName + ": "
+		output <- llmModel + ": "
 
 		// function tools
-		if a.settings.GetToolSupport(modelName) {
-			options = append(options, llms.WithTools(availableTools))
+		if a.settings.GetToolSupport(llmModel) {
+			options = append(options, llms.WithTools(availableTools(llmModel)))
 			var return_direct bool
-			content, return_direct, err = executeToolCalls(ctx, model, options, content, output)
+			content, return_direct, err = executeToolCalls(ctx, model, a.settings.GetLLMModelSetting(llmModel), options, content, output)
 			if err != nil {
 				output <- err.Error()
 				return
