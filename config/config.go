@@ -229,16 +229,6 @@ func (s Settings) GetVisionSupport(name string) bool {
 	return false
 }
 
-func (s Settings) GetAvailableModels() string {
-	var models []string
-	for _, v := range s.Models {
-		if v.Enabled {
-			models = append(models, "`"+v.Name+"`")
-		}
-	}
-	return strings.Join(models, ", ")
-}
-
 func (s Settings) GetToolSupport(name LLMModel) bool {
 	for _, v := range s.Models {
 		if v.Name == name {

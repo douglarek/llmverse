@@ -1,12 +1,14 @@
 package aicore
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -143,13 +145,32 @@ func parseImageParts(modelName string, imageURLs []string) (parts []llms.Content
 	return
 }
 
+func (a *LLMAgent) modelNames() string {
+	var models []string
+	for k := range a.models {
+		models = append(models, k)
+	}
+	slices.Sort(models)
+
+	var b bytes.Buffer
+	for _, m := range models {
+		b.WriteString("`")
+		b.WriteString(m)
+		b.WriteString("`")
+		b.WriteString(", ")
+	}
+	b.Truncate(b.Len() - 2)
+
+	return b.String()
+}
+
 func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageURLs []string) (<-chan string, error) {
 	slog.Info("[LLMAgent.Query] query", "user", user, "input", input, "imageURLs", imageURLs)
 
 	llmModel := a.settings.GetLLMModel(input)
 	model := a.models[llmModel]
 	if model == nil {
-		return nil, fmt.Errorf("available models: %s. question should start with `[model]:`", a.settings.GetAvailableModels())
+		return nil, fmt.Errorf("available models: %s. begin your question with `model: `", a.modelNames())
 	}
 	input = strings.TrimPrefix(input, llmModel+":")
 

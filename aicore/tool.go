@@ -92,15 +92,12 @@ func getExchangeRate(ctx context.Context, currencyDate string) ([]byte, error) {
 func generateImage(ctx context.Context, imageDesc string, setting config.ModelSetting) (string, error) {
 	conf := openai.DefaultConfig(setting.APIKey)
 	conf.BaseURL = setting.BaseURL
+
 	c := openai.NewClientWithConfig(conf)
 	resp, err := c.CreateImage(ctx, openai.ImageRequest{
-		Prompt:         imageDesc,
-		Model:          openai.CreateImageModelDallE3,
-		N:              1,
-		Quality:        openai.CreateImageQualityStandard,
-		Size:           openai.CreateImageSize1024x1024,
-		Style:          openai.CreateImageStyleNatural,
-		ResponseFormat: openai.CreateImageResponseFormatURL,
+		Prompt: imageDesc,
+		Model:  openai.CreateImageModelDallE3,
+		Size:   openai.CreateImageSize1024x1024,
 	})
 
 	if err != nil {
@@ -180,7 +177,7 @@ func executeToolCalls(ctx context.Context, model llms.Model, modelSetting config
 				},
 			}
 		default:
-			slog.Error("[LLMAgent.Query] hint unknown tool call", "name", tc.FunctionCall.Name)
+			slog.Warn("[LLMAgent.Query] hint unknown tool call", "name", tc.FunctionCall.Name)
 			continue
 		}
 
