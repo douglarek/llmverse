@@ -6,6 +6,7 @@
     "system_prompt": "You are a helpful AI assistant.",
     "temperature": 0.7,
     "openweather_key": "",
+    "imgur_client_id": "",
     "models": [
         {
             "name": "bedrock",

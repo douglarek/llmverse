@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.26.1
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.8.0
 	github.com/bwmarrin/discordgo v0.28.1
+	github.com/koffeinsource/go-imgur v0.4.1
 	github.com/sashabaranov/go-openai v1.24.1
 	github.com/tmc/langchaingo v0.1.11-0.20240523170143-078e88b77de4
 )
@@ -45,6 +46,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.12.4 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/klauspost/compress v1.17.8 // indirect
+	github.com/koffeinsource/go-klogger v0.1.1 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.6 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
@@ -66,6 +68,7 @@ require (
 	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/api v0.180.0 // indirect
+	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240506185236-b8a5c65736ae // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240506185236-b8a5c65736ae // indirect
 	google.golang.org/grpc v1.63.2 // indirect

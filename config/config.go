@@ -37,6 +37,7 @@ type LLMSetting struct {
 	HasToolSupport   bool     `json:"has_tool_support,omitempty"`
 	// expose some common settings to the model
 	OpenWeatherKey *string `json:"-"`
+	ImgurClientID  *string `json:"-"`
 }
 
 type Settings struct {
@@ -47,6 +48,7 @@ type Settings struct {
 	SystemPrompt    string       `json:"system_prompt"`
 	Temperature     *float64     `json:"temperature"`
 	OpenWeatherKey  *string      `json:"openweather_key,omitempty"`
+	ImgurClientID   *string      `json:"imgur_client_id"`
 	Models          []LLMSetting `json:"models"`
 }
 
@@ -218,6 +220,7 @@ func (s Settings) GetLLMModelSetting(name LLMModel) LLMSetting {
 	for _, v := range s.Models {
 		if v.Name == name {
 			v.OpenWeatherKey = s.OpenWeatherKey
+			v.ImgurClientID = s.ImgurClientID
 			return v
 		}
 	}

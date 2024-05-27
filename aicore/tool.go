@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/douglarek/llmverse/config"
+	"github.com/koffeinsource/go-imgur"
 	"github.com/sashabaranov/go-openai"
 	"github.com/tmc/langchaingo/llms"
 )
@@ -42,7 +43,7 @@ func availableTools(modelSetting config.LLMSetting) []llms.Tool {
 	default:
 	}
 
-	if modelSetting.OpenWeatherKey != nil {
+	if modelSetting.OpenWeatherKey != nil && *modelSetting.OpenWeatherKey != "" {
 		weatherTool := llms.Tool{
 			Type: "function",
 			Function: &llms.FunctionDefinition{
@@ -127,10 +128,33 @@ func generateImage(ctx context.Context, imageDesc string, ms config.LLMSetting) 
 
 	if err != nil {
 		return "", err
-
 	}
 
-	return resp.Data[0].URL, nil
+	if ms.ImgurClientID == nil || *ms.ImgurClientID == "" {
+		return resp.Data[0].URL, nil
+	}
+
+	ic, err := imgur.NewClient(http.DefaultClient, *ms.ImgurClientID, "")
+	if err != nil {
+		return "", err
+	}
+
+	rl, err := ic.GetRateLimit()
+	if err != nil {
+		return "", err
+	}
+	if rl.ClientRemaining == 0 {
+		slog.Warn("[generateImage] imgur rate limit exceeded", "reset_time", rl.UserReset)
+		return resp.Data[0].URL, nil
+	}
+
+	slog.Debug("[generateImage] uploading image to imgur", "url", resp.Data[0].URL)
+	ii, _, err := ic.UploadImage([]byte(resp.Data[0].URL), "", "URL", "", imageDesc)
+	if err != nil {
+		return "", err
+	}
+
+	return ii.Link, nil
 }
 
 // getWeather is a helper function that makes a request to the OpenWeather API
