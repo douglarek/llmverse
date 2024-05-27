@@ -174,7 +174,7 @@ func executeToolCalls(ctx context.Context, model llms.Model, ms config.LLMSettin
 	var isStreaming bool
 	options = append(options, llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
 		isStreaming = true
-		output <- parseToolCallStreamingChunk(chunk)
+		output <- parseToolCallStreamingChunk(chunk, false)
 		return nil
 	}))
 	resp, err := model.GenerateContent(ctx, content, options...)
@@ -187,6 +187,10 @@ func executeToolCalls(ctx context.Context, model llms.Model, ms config.LLMSettin
 	if len(respChoice.ToolCalls) == 0 {
 		content = append(content, ar)
 		return content, true, nil
+	}
+
+	if isStreaming {
+		go func() { output <- parseToolCallStreamingChunk(nil, true) }()
 	}
 
 	var toolMessages []llms.MessageContent
@@ -231,7 +235,7 @@ func executeToolCalls(ctx context.Context, model llms.Model, ms config.LLMSettin
 					llms.ToolCallResponse{
 						ToolCallID: tc.ID,
 						Name:       tc.FunctionCall.Name,
-						Content:    rs,
+						Content:    fmt.Sprintf("the generated image url is: %s", rs),
 					},
 				},
 			}
@@ -263,9 +267,6 @@ func executeToolCalls(ctx context.Context, model llms.Model, ms config.LLMSettin
 
 		ar.Parts = append(ar.Parts, tc)
 		toolMessages = append(toolMessages, tr)
-		if isStreaming {
-			output <- "`\n\n"
-		}
 	}
 
 	content = append(content, ar)
@@ -283,7 +284,11 @@ type toolCallStreamingChunk struct {
 	} `json:"function"`
 }
 
-func parseToolCallStreamingChunk(chunk []byte) string {
+func parseToolCallStreamingChunk(chunk []byte, end bool) string {
+	if end {
+		return "`\n\n"
+	}
+
 	slog.Debug("[tool.parseToolCallStreamingChunk]", "chunk", string(chunk))
 
 	var tc []toolCallStreamingChunk

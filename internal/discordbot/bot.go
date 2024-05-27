@@ -135,8 +135,7 @@ func messageCreate(agent *aicore.LLMAgent) func(s *discordgo.Session, e *discord
 					s.ChannelMessageEdit(e.ChannelID, messageObj.ID, string(umessage[:2000]))
 					message = modelName + ": ⏩ " + string(umessage[2000:])
 					messageObj, _ = s.ChannelMessageSendReply(e.ChannelID, message, e.Reference())
-				default:
-					chunk, ok := <-output
+				case chunk, ok := <-output:
 					if !ok {
 						time.Sleep(1 * time.Second) // discord 429 case
 						umessage := []rune(message)
