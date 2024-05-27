@@ -22,29 +22,32 @@ var (
 	Lingyiwanwu LLMModel = "lingyiwanwu"
 )
 
-type ModelSetting struct {
-	Name             string `json:"name,omitempty"`
-	APIKey           string `json:"api_key,omitempty"`
-	APIVersion       string `json:"api_version,omitempty"`
-	Enabled          bool   `json:"enabled"`
-	Model            string `json:"model,omitempty"`
-	BaseURL          string `json:"base_url,omitempty"`
-	AccessKeyID      string `json:"access_key_id,omitempty"`
-	ModelID          string `json:"model_id,omitempty"`
-	RegionName       string `json:"region_name,omitempty"`
-	SecretAccessKey  string `json:"secret_access_key,omitempty"`
-	HasVisionSupport bool   `json:"has_vision_support,omitempty"`
-	HasToolSupport   bool   `json:"has_tool_support,omitempty"`
+type LLMSetting struct {
+	Name             LLMModel `json:"name,omitempty"`
+	APIKey           string   `json:"api_key,omitempty"`
+	APIVersion       string   `json:"api_version,omitempty"`
+	Enabled          bool     `json:"enabled"`
+	Model            string   `json:"model,omitempty"`
+	BaseURL          string   `json:"base_url,omitempty"`
+	AccessKeyID      string   `json:"access_key_id,omitempty"`
+	ModelID          string   `json:"model_id,omitempty"`
+	RegionName       string   `json:"region_name,omitempty"`
+	SecretAccessKey  string   `json:"secret_access_key,omitempty"`
+	HasVisionSupport bool     `json:"has_vision_support,omitempty"`
+	HasToolSupport   bool     `json:"has_tool_support,omitempty"`
+	// expose some common settings to the model
+	OpenWeatherKey *string `json:"-"`
 }
 
 type Settings struct {
-	DiscordBotToken string         `json:"discord_bot_token"`
-	EnableDebug     bool           `json:"enable_debug"`
-	HistoryMaxSize  *int           `json:"history_max_size"`
-	OutputMaxSize   *int           `json:"output_max_size"`
-	SystemPrompt    string         `json:"system_prompt"`
-	Temperature     *float64       `json:"temperature"`
-	Models          []ModelSetting `json:"models"`
+	DiscordBotToken string       `json:"discord_bot_token"`
+	EnableDebug     bool         `json:"enable_debug"`
+	HistoryMaxSize  *int         `json:"history_max_size"`
+	OutputMaxSize   *int         `json:"output_max_size"`
+	SystemPrompt    string       `json:"system_prompt"`
+	Temperature     *float64     `json:"temperature"`
+	OpenWeatherKey  *string      `json:"openweather_key,omitempty"`
+	Models          []LLMSetting `json:"models"`
 }
 
 var _ json.Unmarshaler = (*Settings)(nil)
@@ -211,13 +214,14 @@ func (s Settings) GetLLMModel(input string) LLMModel {
 	return ""
 }
 
-func (s Settings) GetLLMModelSetting(name LLMModel) ModelSetting {
+func (s Settings) GetLLMModelSetting(name LLMModel) LLMSetting {
 	for _, v := range s.Models {
 		if v.Name == name {
+			v.OpenWeatherKey = s.OpenWeatherKey
 			return v
 		}
 	}
-	return ModelSetting{}
+	return LLMSetting{}
 }
 
 func (s Settings) GetVisionSupport(name string) bool {

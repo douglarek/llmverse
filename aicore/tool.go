@@ -7,37 +7,62 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/douglarek/llmverse/config"
 	"github.com/sashabaranov/go-openai"
 	"github.com/tmc/langchaingo/llms"
 )
 
-func availableTools(model config.LLMModel) []llms.Tool {
-	switch model {
+func init() {
+	http.DefaultClient.Timeout = 30 * time.Second
+}
+
+func availableTools(modelSetting config.LLMSetting) []llms.Tool {
+	switch modelSetting.Name {
 	case config.OpenAI:
-		imageTool := []llms.Tool{
-			{
-				Type: "function",
-				Function: &llms.FunctionDefinition{
-					Name:        "generateImage",
-					Description: "Generate a detailed prompt to generate an image based on the following description: {image_desc}",
-					Parameters: map[string]any{
-						"type": "object",
-						"properties": map[string]any{
-							"image_desc": map[string]any{
-								"type":        "string",
-								"description": "A description of the image to generate",
-							},
+		imageTool := llms.Tool{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "generateImage",
+				Description: "Generate a detailed prompt to generate an image based on the following description: {image_desc}",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"image_desc": map[string]any{
+							"type":        "string",
+							"description": "A description of the image to generate",
 						},
-						"required": []string{"image_desc"},
 					},
+					"required": []string{"image_desc"},
 				},
 			},
 		}
-		defaultTools = append(defaultTools, imageTool...)
+		defaultTools = append(defaultTools, imageTool)
 	default:
 	}
+
+	if modelSetting.OpenWeatherKey != nil {
+		weatherTool := llms.Tool{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "getWeather",
+				Description: "Get the weather for a specific location based on the following location: {location}",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"location": map[string]any{
+							"type":        "string",
+							"description": "The location to get the weather for, formatted as 'City,Country', e.g. 'New York,US', and the city and country code must be in ISO 3166-1 alpha-2 format",
+						},
+					},
+					"required": []string{"location"},
+				},
+			},
+		}
+		defaultTools = append(defaultTools, weatherTool)
+	}
+
 	return defaultTools
 }
 
@@ -89,9 +114,9 @@ func getExchangeRate(ctx context.Context, currencyDate string) ([]byte, error) {
 }
 
 // generateImage is a helper function that generates an image based on the imageDesc
-func generateImage(ctx context.Context, imageDesc string, setting config.ModelSetting) (string, error) {
-	conf := openai.DefaultConfig(setting.APIKey)
-	conf.BaseURL = setting.BaseURL
+func generateImage(ctx context.Context, imageDesc string, ms config.LLMSetting) (string, error) {
+	conf := openai.DefaultConfig(ms.APIKey)
+	conf.BaseURL = ms.BaseURL
 
 	c := openai.NewClientWithConfig(conf)
 	resp, err := c.CreateImage(ctx, openai.ImageRequest{
@@ -108,10 +133,20 @@ func generateImage(ctx context.Context, imageDesc string, setting config.ModelSe
 	return resp.Data[0].URL, nil
 }
 
+// getWeather is a helper function that makes a request to the OpenWeather API
+func getWeather(_ context.Context, location string, ms config.LLMSetting) ([]byte, error) {
+	resp, err := http.Get("https://api.openweathermap.org/data/2.5/weather?mode=json&q=" + location + "&appid=" + *ms.OpenWeatherKey)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return io.ReadAll(resp.Body)
+}
+
 // executeToolCalls is a helper function that parses the response from a tool call
 // and returns the content to be sent to the user, whether the response should be
 // returned directly to the user, and any error that occurred.
-func executeToolCalls(ctx context.Context, model llms.Model, modelSetting config.ModelSetting, options []llms.CallOption, content []llms.MessageContent, output chan<- string) ([]llms.MessageContent, bool, error) { // content, return_direct, error
+func executeToolCalls(ctx context.Context, model llms.Model, ms config.LLMSetting, options []llms.CallOption, content []llms.MessageContent, output chan<- string) ([]llms.MessageContent, bool, error) { // content, return_direct, error
 	var isStreaming bool
 	options = append(options, llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
 		isStreaming = true
@@ -162,7 +197,7 @@ func executeToolCalls(ctx context.Context, model llms.Model, modelSetting config
 			if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &args); err != nil {
 				return nil, false, err
 			}
-			rs, err := generateImage(ctx, args.ImageDesc, modelSetting)
+			rs, err := generateImage(ctx, args.ImageDesc, ms)
 			if err != nil {
 				return nil, false, err
 			}
@@ -173,6 +208,27 @@ func executeToolCalls(ctx context.Context, model llms.Model, modelSetting config
 						ToolCallID: tc.ID,
 						Name:       tc.FunctionCall.Name,
 						Content:    rs,
+					},
+				},
+			}
+		case "getWeather":
+			var args struct {
+				Location string `json:"location"`
+			}
+			if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &args); err != nil {
+				return nil, false, err
+			}
+			rs, err := getWeather(ctx, args.Location, ms)
+			if err != nil {
+				return nil, false, err
+			}
+			tr = llms.MessageContent{
+				Role: llms.ChatMessageTypeTool,
+				Parts: []llms.ContentPart{
+					llms.ToolCallResponse{
+						ToolCallID: tc.ID,
+						Name:       tc.FunctionCall.Name,
+						Content:    string(rs),
 					},
 				},
 			}
