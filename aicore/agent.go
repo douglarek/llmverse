@@ -120,9 +120,6 @@ func (a *LLMAgent) saveHistory(ctx context.Context, model llms.Model, key string
 			err = ch.AddUserMessage(ctx, c.Parts[0].(llms.TextContent).Text)
 		case llms.ChatMessageTypeAI:
 			err = ch.AddAIMessage(ctx, c.Parts[0].(llms.TextContent).Text)
-		case llms.ChatMessageTypeTool:
-			p := c.Parts[0].(llms.ToolCallResponse)
-			err = ch.AddMessage(ctx, llms.ToolChatMessage{Content: p.Content, ID: p.ToolCallID})
 		}
 		if err != nil {
 			return err
@@ -276,13 +273,12 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 				return
 			}
 
-			// save chat history
-			if err = a.saveHistory(ctx, model, historyKey, content[len(content)-2:]...); err != nil {
-				slog.Error("[LLMAgent.Query] failed to save history", "error", err)
-			}
-
 			if return_direct { // return directly, since stream response has been sent to output
 				slog.Debug("[LLMAgent.Query] return_direct", "content", content[len(content)-1])
+				// save chat history
+				if err = a.saveHistory(ctx, model, historyKey, content[len(content)-1]); err != nil {
+					slog.Error("[LLMAgent.Query] failed to save history", "error", err)
+				}
 				return
 			}
 
