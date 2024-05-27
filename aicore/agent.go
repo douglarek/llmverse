@@ -95,8 +95,8 @@ type LLMAgent struct {
 	settings config.Settings
 }
 
-func (a *LLMAgent) loadHistory(_ context.Context, model llms.Model, user string) *memory.ConversationTokenBuffer {
-	v, _ := a.history.LoadOrStore(user, memory.NewConversationTokenBuffer(model, *a.settings.HistoryMaxSize))
+func (a *LLMAgent) loadHistory(_ context.Context, model llms.Model, key string) *memory.ConversationTokenBuffer {
+	v, _ := a.history.LoadOrStore(key, memory.NewConversationTokenBuffer(model, *a.settings.HistoryMaxSize))
 	return v.(*memory.ConversationTokenBuffer)
 }
 
@@ -111,12 +111,51 @@ func (a *LLMAgent) ClearHistory(_ context.Context, user string) {
 	slog.Debug("history cleared", "user", user)
 }
 
-func (a *LLMAgent) saveHistory(ctx context.Context, model llms.Model, user, input, output string) error {
-	ch := a.loadHistory(ctx, model, user).ChatHistory
-	if err := ch.AddUserMessage(ctx, input); err != nil {
-		return err
+func (a *LLMAgent) saveHistory(ctx context.Context, model llms.Model, key string, content ...llms.MessageContent) error {
+	ch := a.loadHistory(ctx, model, key).ChatHistory
+	for _, c := range content {
+		var err error
+		switch c.Role {
+		case llms.ChatMessageTypeHuman:
+			err = ch.AddUserMessage(ctx, c.Parts[0].(llms.TextContent).Text)
+		case llms.ChatMessageTypeAI:
+			err = ch.AddAIMessage(ctx, c.Parts[0].(llms.TextContent).Text)
+		case llms.ChatMessageTypeTool:
+			p := c.Parts[0].(llms.ToolCallResponse)
+			err = ch.AddMessage(ctx, llms.ToolChatMessage{Content: p.Content, ID: p.ToolCallID})
+		}
+		if err != nil {
+			return err
+		}
 	}
-	return ch.AddAIMessage(ctx, output)
+	return nil
+}
+
+func (a *LLMAgent) historyToContent(ctx context.Context, model llms.Model, key string) []llms.MessageContent {
+	var content []llms.MessageContent
+
+	chatHistory := a.loadHistory(ctx, model, key).ChatHistory
+	cm, _ := chatHistory.Messages(ctx)
+
+	for _, m := range cm {
+		switch m.GetType() {
+		case llms.ChatMessageTypeHuman:
+			parts := []llms.ContentPart{llms.TextPart(m.GetContent())}
+			content = append(content, llms.MessageContent{
+				Role:  llms.ChatMessageTypeHuman,
+				Parts: parts,
+			})
+		case llms.ChatMessageTypeAI:
+			parts := []llms.ContentPart{llms.TextPart(m.GetContent())}
+			content = append(content, llms.MessageContent{
+				Role:  llms.ChatMessageTypeAI,
+				Parts: parts,
+			})
+			// for tool message, temporarily not known how to handle or is it necessary to handle
+		}
+	}
+
+	return content
 }
 
 func downloadImage(_ context.Context, url string) ([]byte, error) {
@@ -193,25 +232,8 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 	}
 
 	historyKey := user + "_" + llmModel
-	chatHistory := a.loadHistory(ctx, model, historyKey).ChatHistory
 	{ // chat history
-		cm, _ := chatHistory.Messages(ctx)
-		for _, m := range cm {
-			switch m.GetType() {
-			case llms.ChatMessageTypeHuman:
-				parts := []llms.ContentPart{llms.TextPart(m.GetContent())}
-				content = append(content, llms.MessageContent{
-					Role:  llms.ChatMessageTypeHuman,
-					Parts: parts,
-				})
-			case llms.ChatMessageTypeAI:
-				parts := []llms.ContentPart{llms.TextPart(m.GetContent())}
-				content = append(content, llms.MessageContent{
-					Role:  llms.ChatMessageTypeAI,
-					Parts: parts,
-				})
-			}
-		}
+		content = append(content, a.historyToContent(ctx, model, historyKey)...)
 	}
 
 	{ // user input
@@ -251,14 +273,17 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 				output <- err.Error()
 				return
 			}
+
+			// save chat history
+			if err = a.saveHistory(ctx, model, historyKey, content[len(content)-2:]...); err != nil {
+				slog.Error("[LLMAgent.Query] failed to save history", "error", err)
+			}
+
 			if return_direct { // return directly, since stream response has been sent to output
 				slog.Debug("[LLMAgent.Query] return_direct", "content", content[len(content)-1])
-				// save chat history
-				if err = a.saveHistory(ctx, model, historyKey, input, content[len(content)-1].Parts[0].(llms.TextContent).Text); err != nil {
-					slog.Error("[LLMAgent.Query] failed to save history", "error", err)
-				}
 				return
 			}
+
 			slog.Debug("[LLMAgent.Query] parsed tools", "content", content[len(content)-1])
 		}
 
@@ -285,7 +310,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 		}
 
 		// save chat history
-		if err = a.saveHistory(ctx, model, historyKey, input, resp.Choices[0].Content); err != nil {
+		if err = a.saveHistory(ctx, model, historyKey, llms.TextParts(llms.ChatMessageTypeHuman, input), llms.TextParts(llms.ChatMessageTypeAI, resp.Choices[0].Content)); err != nil {
 			slog.Error("[LLMAgent.Query] failed to save history", "error", err)
 		}
 	}()
