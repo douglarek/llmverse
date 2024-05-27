@@ -286,7 +286,7 @@ type toolCallStreamingChunk struct {
 
 func parseToolCallStreamingChunk(chunk []byte, end bool) string {
 	if end {
-		return "`\n\n"
+		return "`||\n\n"
 	}
 
 	slog.Debug("[tool.parseToolCallStreamingChunk]", "chunk", string(chunk))
@@ -299,7 +299,7 @@ func parseToolCallStreamingChunk(chunk []byte, end bool) string {
 	if len(tc) > 0 {
 
 		if tc[0].Function.Name != "" {
-			res := fmt.Sprintf("*** Running tool: [%s] with arguments: *** `", tc[0].Function.Name)
+			res := fmt.Sprintf("||*** Running tool: [%s] with arguments: *** `", tc[0].Function.Name)
 			if tc[0].Function.Arguments != "" {
 				res += tc[0].Function.Arguments
 			}
