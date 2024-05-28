@@ -167,7 +167,7 @@ func downloadImage(_ context.Context, url string) ([]byte, error) {
 
 func parseImageParts(modelName string, imageURLs []string) (parts []llms.ContentPart, err error) {
 	for _, url := range imageURLs {
-		if modelName == config.OpenAI || modelName == config.Azure {
+		if modelName == config.OpenAI || modelName == config.Azure || modelName == config.ChatGLM {
 			parts = append(parts, llms.ImageURLPart(url))
 		} else {
 			b, err := downloadImage(context.Background(), url)
