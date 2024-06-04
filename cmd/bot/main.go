@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/douglarek/llmverse/bot"
 	"github.com/douglarek/llmverse/config"
-	"github.com/douglarek/llmverse/internal/discordbot"
 )
 
 var configFile = flag.String("config-file", "config.json", "path to config file")
@@ -32,7 +32,7 @@ func main() {
 		slogLevel.Set(slog.LevelDebug)
 	}
 
-	bot, err := discordbot.New(settings)
+	bot, err := bot.NewDiscord(settings)
 	if err != nil {
 		slog.Error("[main]: cannot create discord bot", "error", err)
 		return

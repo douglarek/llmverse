@@ -1,4 +1,4 @@
-package discordbot
+package bot
 
 import (
 	"context"
@@ -13,16 +13,15 @@ import (
 	"github.com/douglarek/llmverse/config"
 )
 
-type Bot struct {
+type Discord struct {
 	session *discordgo.Session
 }
 
-func (b *Bot) Close() error {
-
+func (b *Discord) Close() error {
 	return b.session.Close()
 }
 
-func New(settings config.Settings) (*Bot, error) {
+func NewDiscord(settings config.Settings) (*Discord, error) {
 	session, err := discordgo.New("Bot " + settings.DiscordBotToken)
 	if err != nil {
 		return nil, err
@@ -37,7 +36,7 @@ func New(settings config.Settings) (*Bot, error) {
 		return nil, err
 	}
 
-	return &Bot{session: session}, nil
+	return &Discord{session: session}, nil
 }
 
 func botReady(s *discordgo.Session, r *discordgo.Ready) {
