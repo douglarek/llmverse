@@ -245,14 +245,6 @@ func (s Settings) GetToolSupport(name LLMModel) bool {
 	return false
 }
 
-func ParseModelName(input string) string {
-	index := strings.Index(input, ":")
-	if index == -1 {
-		return ""
-	}
-	return input[:index]
-}
-
 func LoadSettings(filePath string) (Settings, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {

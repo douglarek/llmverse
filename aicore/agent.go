@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -191,7 +190,7 @@ func parseImageParts(modelName string, imageURLs []string) (parts []llms.Content
 	return
 }
 
-func (a *LLMAgent) modelNames() string {
+func (a *LLMAgent) AvailableModelNames() string {
 	var models []string
 	for k := range a.models {
 		models = append(models, k)
@@ -210,20 +209,30 @@ func (a *LLMAgent) modelNames() string {
 	return b.String()
 }
 
-func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageURLs []string) (<-chan string, error) {
+func (a *LLMAgent) ParseModelName(input string) string {
+	index := strings.Index(input, ":")
+	if index == -1 {
+		return ""
+	}
+
+	modelName := input[:index]
+	for k := range a.models {
+		if k == modelName {
+			return modelName
+		}
+	}
+
+	return ""
+}
+
+func (a *LLMAgent) Query(ctx context.Context, modelName, user, input string, imageURLs []string) (<-chan string, error) {
 	slog.Info("[LLMAgent.Query] query", "user", user, "input", input, "imageURLs", imageURLs)
 
-	llmModelName := a.settings.GetLLMModel(input)
-	model := a.models[llmModelName]
-	if model == nil {
-		return nil, fmt.Errorf("available models: %s. begin your question with `model: `", a.modelNames())
-	}
-	input = strings.TrimPrefix(input, llmModelName+":")
-
+	model := a.models[modelName]
 	output := make(chan string)
 	var err error
 
-	if len(imageURLs) > 0 && !a.settings.GetVisionSupport(llmModelName) {
+	if len(imageURLs) > 0 && !a.settings.GetVisionSupport(modelName) {
 		close(output)
 		return output, errors.New("vision of current model not enabled")
 	}
@@ -238,7 +247,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 		})
 	}
 
-	historyKey := user + "_" + llmModelName
+	historyKey := user + "_" + modelName
 	{ // chat history
 		content = append(content, a.historyToContent(ctx, model, historyKey)...)
 	}
@@ -248,7 +257,7 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 
 		parts = append(parts, llms.TextPart(input))
 
-		ps, err := parseImageParts(llmModelName, imageURLs)
+		ps, err := parseImageParts(modelName, imageURLs)
 		if err != nil {
 			close(output)
 			return output, err
@@ -269,11 +278,9 @@ func (a *LLMAgent) Query(ctx context.Context, user string, input string, imageUR
 	go func() {
 		defer close(output)
 
-		output <- llmModelName + ": "
-
 		// function tools
-		if a.settings.GetToolSupport(llmModelName) {
-			ms := a.settings.GetLLMModelSetting(llmModelName)
+		if a.settings.GetToolSupport(modelName) {
+			ms := a.settings.GetLLMModelSetting(modelName)
 			options = append(options, llms.WithTools(availableTools(ms)))
 
 			var return_direct bool
