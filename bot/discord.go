@@ -107,7 +107,7 @@ func messageCreate(agent *aicore.LLMAgent) func(s *discordgo.Session, e *discord
 		}
 
 		if err != nil {
-			s.ChannelMessageSendReply(e.ChannelID, "🤖 "+err.Error(), e.Reference())
+			s.ChannelMessageSendReply(e.ChannelID, modelName+": 🤖 "+err.Error(), e.Reference())
 			return
 		}
 
