@@ -3,6 +3,7 @@ package aicore
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -167,14 +168,23 @@ func downloadImage(_ context.Context, url string) ([]byte, error) {
 
 func parseImageParts(modelName string, imageURLs []string) (parts []llms.ContentPart, err error) {
 	for _, url := range imageURLs {
-		if modelName == config.OpenAI || modelName == config.Azure || modelName == config.ChatGLM {
+		if modelName == config.OpenAI || modelName == config.Azure {
 			parts = append(parts, llms.ImageURLPart(url))
 		} else {
 			b, err := downloadImage(context.Background(), url)
 			if err != nil {
 				return nil, err
 			}
-			parts = append(parts, llms.BinaryPart("image/png", b))
+			// since ChatGLM's server is located in China, it is not possible to use the image URL directly,
+			// so we need to convert the image to base64 format
+			if modelName == config.ChatGLM {
+				// I really can't understand this implementation of ChatGLM.
+				// You said it's compatible with OpenAI, but they even removed the 'data:image/jpeg;base64,' prefix.
+				// Let it be, it's very amateurish.
+				parts = append(parts, llms.ImageURLPart(base64.StdEncoding.EncodeToString(b)))
+			} else {
+				parts = append(parts, llms.BinaryPart("image/png", b))
+			}
 		}
 	}
 
