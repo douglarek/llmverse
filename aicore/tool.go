@@ -15,10 +15,6 @@ import (
 	"github.com/tmc/langchaingo/llms"
 )
 
-func init() {
-	http.DefaultClient.Timeout = 30 * time.Second
-}
-
 func availableTools(modelSetting config.LLMSetting) []llms.Tool {
 	switch modelSetting.Name {
 	case config.OpenAI:
@@ -105,7 +101,7 @@ func getExchangeRate(ctx context.Context, currencyDate string) ([]byte, error) {
 	}
 	req.Close = true
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := (&http.Client{Timeout: 1 * time.Minute}).Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +130,7 @@ func generateImage(ctx context.Context, imageDesc string, ms config.LLMSetting) 
 		return resp.Data[0].URL, nil
 	}
 
-	ic, err := imgur.NewClient(http.DefaultClient, *ms.ImgurClientID, "")
+	ic, err := imgur.NewClient(&http.Client{Timeout: 1 * time.Minute}, *ms.ImgurClientID, "")
 	if err != nil {
 		return "", err
 	}

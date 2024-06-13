@@ -54,7 +54,7 @@ func combineModelWithErrMessage(modelName, message string) string {
 
 func messageCreate(agent *aicore.LLMAgent) func(s *discordgo.Session, e *discordgo.MessageCreate) {
 	return func(s *discordgo.Session, e *discordgo.MessageCreate) {
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
 		if e.Author.ID == s.State.User.ID || e.MentionEveryone { // ignore this bot and disable @everyone

@@ -156,7 +156,7 @@ func (a *LLMAgent) historyToContent(ctx context.Context, model llms.Model, key s
 }
 
 func downloadImage(_ context.Context, url string) ([]byte, error) {
-	c := &http.Client{Timeout: 30 * time.Second}
+	c := &http.Client{Timeout: 1 * time.Minute}
 	resp, err := c.Get(url)
 	if err != nil {
 		return nil, err
