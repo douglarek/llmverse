@@ -54,6 +54,14 @@ type Settings struct {
 
 var _ json.Unmarshaler = (*Settings)(nil)
 
+// ptr returns a pointer to its argument.
+// It can be used to initialize pointer fields:
+//
+// var a = ptr[float32](0.1)
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *Settings) UnmarshalJSON(data []byte) error {
 	type Alias Settings
 	aux := &struct {
@@ -70,13 +78,11 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 	}
 
 	if s.HistoryMaxSize == nil {
-		s.HistoryMaxSize = new(int)
-		*s.HistoryMaxSize = 2048
+		s.HistoryMaxSize = ptr(2048)
 	}
 
 	if s.OutputMaxSize == nil {
-		s.OutputMaxSize = new(int)
-		*s.OutputMaxSize = 4096
+		s.OutputMaxSize = ptr(4096)
 	}
 
 	if s.SystemPrompt == "" {
@@ -84,8 +90,7 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 	}
 
 	if s.Temperature == nil {
-		s.Temperature = new(float64)
-		*s.Temperature = 0.7
+		s.Temperature = ptr(0.7)
 	}
 
 	for i, v := range s.Models {
