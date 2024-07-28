@@ -185,7 +185,7 @@ func executeToolCalls(ctx context.Context, model llms.Model, ms config.LLMSettin
 		return content, true, nil
 	}
 
-	if isStreaming {
+	if isStreaming && respChoice.Content != "" {
 		go func() { output <- parseToolCallStreamingChunk(nil, true) }()
 	}
 
@@ -194,6 +194,7 @@ func executeToolCalls(ctx context.Context, model llms.Model, ms config.LLMSettin
 		var tr llms.MessageContent
 		switch tc.FunctionCall.Name {
 		case "getExchangeRate":
+			slog.Debug(fmt.Sprintf("[executeToolCalls] getExchangeRate: %+v", tc.FunctionCall.Arguments))
 			var args struct {
 				CurrencyDate string `json:"currency_date"`
 			}
@@ -215,6 +216,7 @@ func executeToolCalls(ctx context.Context, model llms.Model, ms config.LLMSettin
 				},
 			}
 		case "generateImage":
+			slog.Debug(fmt.Sprintf("[executeToolCalls] generateImage: %+v", tc.FunctionCall.Arguments))
 			var args struct {
 				ImageDesc string `json:"image_desc"`
 			}
@@ -236,6 +238,7 @@ func executeToolCalls(ctx context.Context, model llms.Model, ms config.LLMSettin
 				},
 			}
 		case "getWeather":
+			slog.Debug(fmt.Sprintf("[executeToolCalls] getWeather: %+v", tc.FunctionCall.Arguments))
 			var args struct {
 				Location string `json:"location"`
 			}
