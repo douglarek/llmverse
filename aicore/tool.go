@@ -168,9 +168,11 @@ func getWeather(_ context.Context, location string, ms config.LLMSetting) ([]byt
 // returned directly to the user, and any error that occurred.
 func executeToolCalls(ctx context.Context, model llms.Model, ms config.LLMSetting, options []llms.CallOption, content []llms.MessageContent, output chan<- string) ([]llms.MessageContent, bool, error) { // content, return_direct, error
 	var isStreaming bool
+	var chunks []byte
 	options = append(options, llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
 		isStreaming = true
 		output <- parseToolCallStreamingChunk(chunk, false)
+		chunks = append(chunks, chunk...)
 		return nil
 	}))
 	resp, err := model.GenerateContent(ctx, content, options...)
@@ -185,7 +187,7 @@ func executeToolCalls(ctx context.Context, model llms.Model, ms config.LLMSettin
 		return content, true, nil
 	}
 
-	if isStreaming && respChoice.Content != "" {
+	if isStreaming && len(chunks) > 0 {
 		go func() { output <- parseToolCallStreamingChunk(nil, true) }()
 	}
 
