@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -181,6 +182,8 @@ func parseImageParts(modelName string, imageURLs []string) (parts []llms.Content
 				// You said it's compatible with OpenAI, but they even removed the 'data:image/jpeg;base64,' prefix.
 				// Let it be, it's very amateurish.
 				parts = append(parts, llms.ImageURLPart(base64.StdEncoding.EncodeToString(b)))
+			} else if modelName == config.Qwen {
+				parts = append(parts, llms.ImageURLPart(fmt.Sprintf("data:image/png;base64,%s", base64.StdEncoding.EncodeToString(b))))
 			} else {
 				parts = append(parts, llms.BinaryPart("image/png", b))
 			}
