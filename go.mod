@@ -1,6 +1,6 @@
 module github.com/douglarek/llmverse
 
-go 1.22.2
+go 1.23.0
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.26.1
@@ -71,4 +71,4 @@ require (
 	google.golang.org/protobuf v1.34.1 // indirect
 )
 
-replace github.com/tmc/langchaingo v0.1.12 => github.com/douglarek/langchaingo v0.0.0-20240728021547-64fad3d87b87
+replace github.com/tmc/langchaingo v0.1.12 => github.com/douglarek/langchaingo v0.0.0-20240902062424-56e59ae30401
