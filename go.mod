@@ -8,7 +8,7 @@ require (
 	github.com/bwmarrin/discordgo v0.28.1
 	github.com/koffeinsource/go-imgur v0.4.1
 	github.com/sashabaranov/go-openai v1.24.1
-	github.com/tmc/langchaingo v0.1.13-pre.0.0.20250202054634-8ee3dd7134bc
+	github.com/tmc/langchaingo v0.1.12
 )
 
 require (
@@ -71,4 +71,4 @@ require (
 	google.golang.org/protobuf v1.34.1 // indirect
 )
 
-replace github.com/tmc/langchaingo v0.1.12 => github.com/douglarek/langchaingo v0.0.0-20240902062424-56e59ae30401
+replace github.com/tmc/langchaingo v0.1.12 => github.com/douglarek/langchaingo v0.0.0-20250202122146-b6ce64d49749

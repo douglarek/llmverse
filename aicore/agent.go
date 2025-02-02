@@ -307,9 +307,22 @@ func (a *LLMAgent) Query(ctx context.Context, modelName, user, input string, ima
 
 		// streaming
 		var isStreaming bool
-		options = append(options, llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
+		var reasoning bool
+		options = append(options, llms.WithStreamingReasoningFunc(func(ctx context.Context, reasoningChunk []byte, chunk []byte) error {
 			isStreaming = true
-			output <- string(chunk)
+			if len(reasoningChunk) > 0 {
+				if !reasoning {
+					output <- "\n> 🤔: "
+				}
+				reasoning = true
+				output <- string(reasoningChunk)
+			} else {
+				if reasoning {
+					output <- string("\n")
+					reasoning = false
+				}
+				output <- string(chunk)
+			}
 			return nil
 		}))
 		resp, err := model.GenerateContent(ctx, content, options...)
