@@ -312,13 +312,13 @@ func (a *LLMAgent) Query(ctx context.Context, modelName, user, input string, ima
 			isStreaming = true
 			if len(reasoningChunk) > 0 {
 				if !reasoning {
-					output <- "\n> 🤔: "
+					output <- "🤔: ||"
 				}
 				reasoning = true
 				output <- string(reasoningChunk)
 			} else {
 				if reasoning {
-					output <- string("\n")
+					output <- string("||\n")
 					reasoning = false
 				}
 				output <- string(chunk)
